@@ -64,8 +64,6 @@ messages:
 
     <dark_gray>--------------------------------------------------</dark_gray>
     <white>Bạn đang ở vị trí: <aqua><b>#<position></b></aqua> / <gray><total></gray> trong hàng chờ</white>
-    <white>Thời gian giữ vị trí: <yellow><time_left></yellow></white>
-    <white>Ước tính chờ: <green><eta></green></white>
     <dark_gray>--------------------------------------------------</dark_gray>
 
     <gold>👉 <b>HÃY BẤM KẾT NỐI LẠI TRONG VÒNG 5 PHÚT ĐỂ DUY TRÌ HÀNG CHỜ!</b></gold>

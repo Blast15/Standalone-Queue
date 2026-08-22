@@ -456,4 +456,39 @@ public class QueueManager {
             lock.writeLock().unlock();
         }
     }
+
+    /**
+     * Kiểm tra xem người chơi có đang trong hàng chờ hay không theo UUID.
+     */
+    public boolean isInQueue(UUID uuid) {
+        if (uuid == null) {
+            return false;
+        }
+        lock.readLock().lock();
+        try {
+            return queueMap.containsKey(uuid);
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Kiểm tra xem người chơi có đang trong hàng chờ hay không theo tên.
+     */
+    public boolean isInQueue(String username) {
+        if (username == null || username.isEmpty()) {
+            return false;
+        }
+        lock.readLock().lock();
+        try {
+            for (QueuedPlayer qp : queueMap.values()) {
+                if (username.equalsIgnoreCase(qp.getUsername())) {
+                    return true;
+                }
+            }
+            return false;
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
 }
