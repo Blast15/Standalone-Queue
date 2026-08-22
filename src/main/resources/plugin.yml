@@ -1,0 +1,27 @@
+name: StandaloneQueue
+version: 1.0.0
+main: com.mineplugin.queue.StandaloneQueuePlugin
+api-version: '1.21'
+author: Antigravity
+description: Plugin hang cho tu dong khong can proxy cho may chu Paper
+
+commands:
+  queue:
+    description: Cac lenh quan tri he thong hang cho
+    permission: queue.admin
+    usage: /<command> [reload|status|list|clear|kick]
+    aliases: [sq, hangcho]
+
+permissions:
+  queue.admin:
+    description: Toan quyen quan tri hang cho
+    default: op
+  queue.bypass:
+    description: Bo qua hang cho va vao thang may chu ngay ca khi full
+    default: op
+  queue.priority:
+    description: Uu tien hang cho co ban
+    default: false
+  queue.priority.vip:
+    description: Uu tien hang cho VIP cao cap
+    default: false

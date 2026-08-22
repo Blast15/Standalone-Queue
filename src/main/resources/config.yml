@@ -1,0 +1,108 @@
+# =================================================================== #
+#             STANDALONE QUEUE PLUGIN CONFIGURATION                   #
+#        Plugin Hàng Chờ Tự Động Độc Lập (Không cần Proxy)            #
+# =================================================================== #
+
+queue:
+  # Bật hoặc tắt hệ thống hàng chờ
+  enabled: true
+
+  # Số lượng người chơi tối đa để kích hoạt hàng chờ.
+  # Đặt -1 để tự động lấy theo max-players trong server.properties.
+  # Hoặc đặt một số cụ thể (ví dụ: 50, 100) để giới hạn theo ý muốn.
+  max-players-override: -1
+
+  # Thời gian (tính bằng giây) một người chơi có thể giữ vị trí mà không cần kết nối lại.
+  # Theo yêu cầu: 300 giây = 5 phút. Quá thời gian này sẽ bị đá khỏi hàng chờ.
+  keep-alive-seconds: 300
+
+  # Thời gian (tính bằng giây) giữ slot trống cho người đứng đầu hàng chờ (#1).
+  # Khi có slot trống, người #1 có khoảng thời gian này để kết nối vào game.
+  # Nếu người #1 không kết nối trong thời gian này, slot sẽ được chuyển cho người tiếp theo.
+  slot-reservation-seconds: 60
+
+  # Giới hạn thời gian tối thiểu giữa các lần kết nối (tính bằng giây) để chống spam bot / DDoS.
+  rate-limit-seconds: 2
+
+  # Giới hạn số lượng người tối đa có thể ở trong hàng chờ cùng lúc (0 = không giới hạn).
+  max-queue-size: 500
+
+  # Tự động gửi thông báo trên console khi có người vào/rời hàng chờ hoặc được cấp slot.
+  debug-log: false
+
+# Hệ thống quyền ưu tiên (Priority Weights)
+# Càng cao càng được xếp trước. Quyền hạn có định dạng: queue.priority.<name>
+# Mặc định người chơi không có quyền gì sẽ có priority: 0
+priorities:
+  vip:
+    permission: "queue.priority.vip"
+    weight: 10
+  mvp:
+    permission: "queue.priority.mvp"
+    weight: 20
+  staff:
+    permission: "queue.priority.staff"
+    weight: 50
+
+# Định dạng tin nhắn (Hỗ trợ MiniMessage: <gradient>, <color>, <bold>, <click>, <hover>, ...)
+# Tài liệu MiniMessage: https://docs.advntr.dev/minimessage/format.html
+messages:
+  prefix: "<gradient:#ff7700:#ffaa00><b>[HÀNG CHỜ]</b></gradient> <gray>»</gray> "
+
+  # Màn hình ngắt kết nối hiển thị khi người chơi đang trong hàng chờ
+  # Placeholders có sẵn:
+  #   <position>   : Vị trí hiện tại trong hàng chờ (ví dụ: 1, 2, 3...)
+  #   <total>      : Tổng số người đang xếp hàng
+  #   <online>     : Số người chơi đang online trong server
+  #   <max>        : Sức chứa tối đa của server
+  #   <time_left>  : Thời gian còn lại để giữ vị trí (ví dụ: 4m 58s)
+  #   <priority>   : Trọng số ưu tiên của người chơi
+  #   <eta>        : Thời gian ước tính (ước lượng theo tốc độ trống slot)
+  kick-in-queue: |
+    <gradient:#ff5555:#ffaa00><b>⭐ MÁY CHỦ HIỆN ĐÃ ĐẦY ⭐</b></gradient>
+    <gray>Trạng thái máy chủ: <yellow><online></yellow>/<gold><max></gold> người chơi</gray>
+
+    <dark_gray>--------------------------------------------------</dark_gray>
+    <white>Bạn đang ở vị trí: <aqua><b>#<position></b></aqua> / <gray><total></gray> trong hàng chờ</white>
+    <white>Thời gian giữ vị trí: <yellow><time_left></yellow></white>
+    <white>Ước tính chờ: <green><eta></green></white>
+    <dark_gray>--------------------------------------------------</dark_gray>
+
+    <gold>👉 <b>HÃY BẤM KẾT NỐI LẠI TRONG VÒNG 5 PHÚT ĐỂ DUY TRÌ HÀNG CHỜ!</b></gold>
+    <gray><i>(Khi đến lượt bạn, lần kết nối tiếp theo sẽ đưa bạn thẳng vào máy chủ)</i></gray>
+
+  # Màn hình ngắt kết nối khi slot ĐÃ SẴN SÀNG cho người chơi này nhưng họ kết nối vào thời điểm đang đồng bộ
+  kick-slot-ready: |
+    <green><b>🎉 ĐÃ ĐẾN LƯỢT CỦA BẠN! 🎉</b></green>
+    <white>Slot máy chủ đã được mở và giữ riêng cho bạn!</white>
+    <yellow>Vui lòng bấm <b>Kết nối lại (Reconnect)</b> ngay bây giờ để vào game!</yellow>
+
+  # Khi kết nối quá nhanh (dưới rate-limit)
+  kick-rate-limited: |
+    <red><b>⚠️ KẾT NỐI QUÁ NHANH!</b></red>
+    <gray>Vui lòng đợi vài giây trước khi thử kết nối lại để giữ ổn định hệ thống.</gray>
+
+  # Khi hàng chờ đã đạt sức chứa tối đa
+  kick-queue-full: |
+    <red><b>❌ HÀNG CHỜ ĐÃ ĐẦY!</b></red>
+    <gray>Hiện tại hàng chờ đã vượt quá sức chứa tối đa (<total> người).</gray>
+    <gray>Vui lòng thử lại sau ít phút!</gray>
+
+  # Khi slot được cấp cho người chơi đã bị hết hạn vì họ không kết nối trong thời gian giữ slot
+  kick-reservation-expired: |
+    <red><b>⚠️ LƯỢT CỦA BẠN ĐÃ BỊ HẾT HẠN!</b></red>
+    <gray>Do bạn không kết nối trong thời gian giữ slot (<time>s), lượt đã được chuyển cho người sau.</gray>
+    <gray>Bạn đã được xếp lại vào hàng chờ.</gray>
+
+  # Thông báo trong console / admin
+  admin:
+    no-permission: "<red>Bạn không có quyền sử dụng lệnh này!</red>"
+    reloaded: "<green>Đã tải lại cấu hình hàng chờ thành công!</green>"
+    cleared: "<green>Đã xóa toàn bộ người chơi khỏi hàng chờ (<count> người)!</green>"
+    kicked-success: "<green>Đã đá người chơi <yellow><player></yellow> khỏi hàng chờ!</green>"
+    player-not-found: "<red>Không tìm thấy người chơi <yellow><player></yellow> trong hàng chờ!</red>"
+    status-header: "<gradient:#00c6ff:#0072ff><b>=== TRẠNG THÁI HÀNG CHỜ ===</b></gradient>"
+    status-line-online: "<gray>Online: <green><online></green>/<gold><max></gold> (Override: <yellow><override></yellow>)</gray>"
+    status-line-queue: "<gray>Đang xếp hàng: <aqua><queue_size></aqua> người (Đã giữ chỗ: <light_purple><reserved_count></light_purple>)</gray>"
+    list-header: "<gradient:#00c6ff:#0072ff><b>=== DANH SÁCH HÀNG CHỜ (<count> người) ===</b></gradient>"
+    list-entry: "<gray><pos>. <white><player></white> <dark_gray>| Priority: <yellow><prio></yellow> | Ping cuối: <aqua><last_ping></aqua> trước | Trạng thái: <status></gray>"

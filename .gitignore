@@ -1,0 +1,35 @@
+# Byte-code and compilation output
+target/
+build/
+bin/
+*.class
+
+# IDE and Editor Files
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+
+# Gradle and Maven temporary directories
+.gradle/
+.tools/
+.lib/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+
+# Logs and Crash Reports
+*.log
+logs/
+hs_err_pid*
+replay_pid*
+
+# OS specific files
+.DS_Store
+Thumbs.db
