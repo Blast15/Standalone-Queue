@@ -1,4 +1,4 @@
-# StandaloneQueue - Plugin Hàng Chờ Độc Lập Cho Paper Minecraft (JDK 25 / Paper 1.21+)
+# StandaloneQueue - Plugin Hàng Chờ Độc Lập Cho Minecraft
 
 Plugin hàng chờ độc lập, **hoàn toàn không cần máy chủ trung gian (Proxy/BungeeCord/Velocity)**.
 
