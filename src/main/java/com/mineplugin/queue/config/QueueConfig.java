@@ -26,6 +26,12 @@ public class QueueConfig {
     private long rateLimitSeconds;
     private int maxQueueSize;
     private boolean debugLog;
+    private boolean antiBotEnabled;
+    private long antiBotWindowSeconds;
+    private int antiBotMaxAttemptsPerIp;
+    private int antiBotMaxQueuedPerIp;
+    private int antiBotGlobalAttemptsPerWindow;
+    private Boolean antiBotRuntimeOverride;
 
     private final Map<String, Integer> permissionPriorities = new HashMap<>();
 
@@ -53,6 +59,11 @@ public class QueueConfig {
         this.rateLimitSeconds = Math.max(0L, config.getLong("queue.rate-limit-seconds", 2L));
         this.maxQueueSize = Math.max(0, config.getInt("queue.max-queue-size", 500));
         this.debugLog = config.getBoolean("queue.debug-log", false);
+        this.antiBotEnabled = config.getBoolean("queue.anti-bot.enabled", false);
+        this.antiBotWindowSeconds = Math.max(1L, config.getLong("queue.anti-bot.window-seconds", 10L));
+        this.antiBotMaxAttemptsPerIp = Math.max(0, config.getInt("queue.anti-bot.max-attempts-per-ip", 20));
+        this.antiBotMaxQueuedPerIp = Math.max(0, config.getInt("queue.anti-bot.max-queued-per-ip", 5));
+        this.antiBotGlobalAttemptsPerWindow = Math.max(0, config.getInt("queue.anti-bot.global-attempts-per-window", 100));
 
         // Load Priorities
         permissionPriorities.clear();
@@ -128,6 +139,14 @@ public class QueueConfig {
     public boolean isDebugLog() {
         return debugLog;
     }
+
+    public boolean isAntiBotEnabled() { return antiBotRuntimeOverride != null ? antiBotRuntimeOverride : antiBotEnabled; }
+    public void setAntiBotRuntimeOverride(Boolean enabled) { this.antiBotRuntimeOverride = enabled; }
+    public void clearRuntimeOverrides() { this.antiBotRuntimeOverride = null; }
+    public long getAntiBotWindowMs() { return toMillisSaturated(antiBotWindowSeconds); }
+    public int getAntiBotMaxAttemptsPerIp() { return antiBotMaxAttemptsPerIp; }
+    public int getAntiBotMaxQueuedPerIp() { return antiBotMaxQueuedPerIp; }
+    public int getAntiBotGlobalAttemptsPerWindow() { return antiBotGlobalAttemptsPerWindow; }
 
     public Map<String, Integer> getPermissionPriorities() {
         return Collections.unmodifiableMap(permissionPriorities);

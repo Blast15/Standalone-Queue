@@ -9,7 +9,7 @@ commands:
   queue:
     description: Cac lenh quan tri he thong hang cho
     permission: queue.admin
-    usage: /<command> [reload|status|list|clear|kick]
+    usage: /<command> [reload|status|list|clear|kick|antibot]
     aliases: [sq, hangcho]
 
 permissions:

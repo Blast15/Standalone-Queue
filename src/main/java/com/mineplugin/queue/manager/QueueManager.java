@@ -31,6 +31,8 @@ public class QueueManager {
 
     // Theo dõi thời điểm kết nối gần nhất để chống spam (UUID -> Timestamp)
     private final Map<UUID, Long> rateLimitMap = new ConcurrentHashMap<>();
+    private final Map<String, ArrayDeque<Long>> ipAttemptWindows = new HashMap<>();
+    private final ArrayDeque<Long> globalAttemptWindow = new ArrayDeque<>();
 
     // Cache quyền hạn của người chơi (UUID -> Set<Permission>)
     private final Map<UUID, Set<String>> permissionCache = new ConcurrentHashMap<>();
@@ -141,6 +143,10 @@ public class QueueManager {
         Objects.requireNonNull(uuid, "uuid");
         long now = System.currentTimeMillis();
 
+        if (config.isAntiBotEnabled() && !acceptAntiBotAttempt(ipAddress, now)) {
+            return new LoginDecision(LoginResultType.RATE_LIMITED, null);
+        }
+
         // 1. Kiểm tra Rate Limit chống spam kết nối
         synchronized (rateLimitMap) {
             Long lastAttempt = rateLimitMap.get(uuid);
@@ -175,6 +181,12 @@ public class QueueManager {
             int freeSlots = Math.max(0, maxCap - occupied);
 
             QueuedPlayer existingPlayer = queueMap.get(uuid);
+
+            if (config.isAntiBotEnabled() && existingPlayer == null
+                    && config.getAntiBotMaxQueuedPerIp() > 0
+                    && countQueuedFromIp(ipAddress) >= config.getAntiBotMaxQueuedPerIp()) {
+                return new LoginDecision(LoginResultType.RATE_LIMITED, null);
+            }
 
             // 4. Kiểm tra xem người chơi có Reservation hợp lệ không
             if (existingPlayer != null && existingPlayer.hasActiveReservation() && freeSlots > 0) {
@@ -251,6 +263,33 @@ public class QueueManager {
         }
     }
 
+    private boolean acceptAntiBotAttempt(String ipAddress, long now) {
+        String ip = (ipAddress == null || ipAddress.isBlank()) ? "unknown" : ipAddress;
+        synchronized (globalAttemptWindow) {
+            long cutoff = now - config.getAntiBotWindowMs();
+            while (!globalAttemptWindow.isEmpty() && globalAttemptWindow.peekFirst() <= cutoff) globalAttemptWindow.removeFirst();
+            int globalLimit = config.getAntiBotGlobalAttemptsPerWindow();
+            if (globalLimit > 0 && globalAttemptWindow.size() >= globalLimit) return false;
+            if (ipAttemptWindows.size() >= 4096 && !ipAttemptWindows.containsKey(ip)) return false;
+            ArrayDeque<Long> attempts = ipAttemptWindows.computeIfAbsent(ip, ignored -> new ArrayDeque<>());
+            while (!attempts.isEmpty() && attempts.peekFirst() <= cutoff) attempts.removeFirst();
+            int ipLimit = config.getAntiBotMaxAttemptsPerIp();
+            if (ipLimit > 0 && attempts.size() >= ipLimit) return false;
+            attempts.addLast(now);
+            globalAttemptWindow.addLast(now);
+            if (ipAttemptWindows.size() > 4096) ipAttemptWindows.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+            return true;
+        }
+    }
+
+    private int countQueuedFromIp(String ipAddress) {
+        int count = 0;
+        for (QueuedPlayer player : queueMap.values()) {
+            if (Objects.equals(player.getIpAddress(), ipAddress)) count++;
+        }
+        return count;
+    }
+
     /**
      * Phân phối reservation cho các slot trống (yêu cầu gọi bên trong writeLock).
      */
@@ -303,6 +342,12 @@ public class QueueManager {
         // Dọn dẹp rateLimitMap (xóa các bản ghi quá 60s để tránh rò rỉ bộ nhớ)
         long now = System.currentTimeMillis();
         rateLimitMap.entrySet().removeIf(entry -> (now - entry.getValue()) > 60_000L);
+        synchronized (globalAttemptWindow) {
+            long cutoff = now - config.getAntiBotWindowMs();
+            while (!globalAttemptWindow.isEmpty() && globalAttemptWindow.peekFirst() <= cutoff) globalAttemptWindow.removeFirst();
+            ipAttemptWindows.values().forEach(attempts -> attempts.removeIf(timestamp -> timestamp <= cutoff));
+            ipAttemptWindows.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+        }
 
         lock.writeLock().lock();
         try {

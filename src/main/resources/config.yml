@@ -27,6 +27,14 @@ queue:
   # Giới hạn số lượng người tối đa có thể ở trong hàng chờ cùng lúc (0 = không giới hạn).
   max-queue-size: 500
 
+  # Bảo vệ admission trước join-bot, đặc biệt cần thiết trên server crack.
+  anti-bot:
+    enabled: true
+    window-seconds: 10
+    max-attempts-per-ip: 20
+    max-queued-per-ip: 5
+    global-attempts-per-window: 100
+
   # Tự động gửi thông báo trên console khi có người vào/rời hàng chờ hoặc được cấp slot.
   debug-log: false
 

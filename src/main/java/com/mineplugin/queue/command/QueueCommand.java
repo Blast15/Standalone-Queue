@@ -50,8 +50,10 @@ public class QueueCommand implements CommandExecutor, TabCompleter {
             case "reload" -> {
                 plugin.reloadConfig();
                 config.load(plugin.getConfig());
+                config.clearRuntimeOverrides();
                 sender.sendMessage(config.getAdminMessage("reloaded"));
             }
+            case "antibot", "anti-bot" -> handleAntiBot(sender, label, args);
             case "status" -> {
                 int online = Bukkit.getServer() != null ? Bukkit.getOnlinePlayers().size() : 0;
                 int maxCap = queueManager.getEffectiveMaxPlayers();
@@ -122,6 +124,24 @@ public class QueueCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(config.parseText("<gold>/" + label + " clear</gold> <gray>- Xóa toàn bộ người chơi khỏi hàng chờ</gray>"));
         sender.sendMessage(config.parseText("<gold>/" + label + " kick <tên></gold> <gray>- Xóa một người chơi khỏi hàng chờ</gray>"));
         sender.sendMessage(config.parseText("<gold>/" + label + " reload</gold> <gray>- Tải lại file config.yml</gray>"));
+        sender.sendMessage(config.parseText("<gold>/" + label + " antibot <on|off|status></gold> <gray>- Bật/tắt bảo vệ join-bot</gray>"));
+    }
+
+    private void handleAntiBot(CommandSender sender, String label, String[] args) {
+        if (args.length < 2 || args[1].equalsIgnoreCase("status")) {
+            String source = config.isAntiBotEnabled() ? "<green>BẬT</green>" : "<red>TẮT</red>";
+            sender.sendMessage(config.parseText("<gray>Anti-joinbot: " + source + "</gray>"));
+            return;
+        }
+        if (args[1].equalsIgnoreCase("on")) {
+            config.setAntiBotRuntimeOverride(true);
+            sender.sendMessage(config.parseText("<green>Đã bật bảo vệ anti-joinbot.</green>"));
+        } else if (args[1].equalsIgnoreCase("off")) {
+            config.setAntiBotRuntimeOverride(false);
+            sender.sendMessage(config.parseText("<yellow>Đã tắt bảo vệ anti-joinbot (chỉ runtime).</yellow>"));
+        } else {
+            sender.sendMessage(config.parseText("<red>Cách dùng: /" + label + " antibot <on|off|status></red>"));
+        }
     }
 
     @Override
@@ -131,7 +151,7 @@ public class QueueCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 1) {
-            List<String> subs = Arrays.asList("status", "list", "clear", "kick", "reload", "help");
+            List<String> subs = Arrays.asList("status", "list", "clear", "kick", "reload", "antibot", "anti-bot", "help");
             return subs.stream().filter(s -> s.startsWith(args[0].toLowerCase())).toList();
         }
 
@@ -144,6 +164,12 @@ public class QueueCommand implements CommandExecutor, TabCompleter {
                 }
             }
             return names;
+        }
+
+        if (args.length == 2 && (args[0].equalsIgnoreCase("antibot") || args[0].equalsIgnoreCase("anti-bot"))) {
+            return Arrays.asList("on", "off", "status").stream()
+                    .filter(value -> value.startsWith(args[1].toLowerCase()))
+                    .toList();
         }
 
         return List.of();
