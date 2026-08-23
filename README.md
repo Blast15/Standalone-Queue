@@ -24,7 +24,13 @@ Plugin hàng chờ độc lập cho máy chủ Minecraft Paper, **hoàn toàn kh
    - Sử dụng `ReentrantReadWriteLock` ngăn ngừa 100% tình trạng Race Condition khi nhiều người kết nối cùng lúc.
    - Tích hợp kiểm soát In-Flight Logins (chống overfilling khi nhiều người cùng lúc qua màn hình đăng nhập).
    - Tích hợp Rate-Limit chống bot spam connection.
-5. **Hệ Thống Phân Hạng Ưu Tiên (Priority & Bypass)**:
+5. **Bảo vệ Join-Bot cho máy chủ crack**:
+   - Giới hạn tốc độ kết nối theo IP và toàn server trong mỗi cửa sổ thời gian.
+   - Giới hạn số tài khoản cùng IP được giữ trong hàng chờ.
+   - Giới hạn số IP được theo dõi để tránh tấn công làm phình bộ nhớ.
+   - Có thể bật/tắt runtime bằng `/queue antibot on|off|status`.
+   - Nên kết hợp firewall hoặc lớp chống DDoS khi bị flood kết nối thật.
+6. **Hệ Thống Phân Hạng Ưu Tiên (Priority & Bypass)**:
    - Quyền `queue.bypass`: Bỏ qua hàng chờ, vào thẳng ngay cả khi đầy.
    - Quyền `queue.priority.vip`, `queue.priority.mvp`: Được xếp trước người chơi thông thường.
 6. **Giao Diện MiniMessage Hiện Đại**:
@@ -42,6 +48,7 @@ Plugin hàng chờ độc lập cho máy chủ Minecraft Paper, **hoàn toàn kh
 | `/queue kick <tên>` | Đá một người chơi ra khỏi hàng chờ | `queue.admin` |
 | `/queue clear` | Xóa sạch toàn bộ hàng chờ | `queue.admin` |
 | `/queue reload` | Tải lại cấu hình `config.yml` | `queue.admin` |
+| `/queue antibot on\|off\|status` | Bật, tắt hoặc xem trạng thái bảo vệ join-bot | `queue.admin` |
 
 ### Quyền Hạn (Permissions):
 - `queue.admin`: Toàn quyền quản trị hàng chờ (mặc định: OP).
@@ -78,4 +85,14 @@ queue:
   slot-reservation-seconds: 60  # Thời gian giữ slot cho người đứng đầu
   rate-limit-seconds: 2         # Chống spam bấm reconnect
   max-queue-size: 500           # Sức chứa tối đa của hàng chờ
+  anti-bot:
+    enabled: true               # Bật bảo vệ join-bot mặc định
+    window-seconds: 10          # Cửa sổ tính giới hạn
+    max-attempts-per-ip: 20     # Số lần thử tối đa từ một IP/cửa sổ
+    max-queued-per-ip: 5        # Số bot tối đa cùng IP trong queue
+    global-attempts-per-window: 100 # Tổng số lần thử toàn server/cửa sổ
 ```
+
+### Vận hành khi bị tấn công
+
+Có thể tắt tạm thời bằng `/queue antibot off` để xử lý sự cố hoặc bật lại bằng `/queue antibot on`. Trạng thái runtime không ghi đè file cấu hình; `/queue reload` sẽ quay về giá trị trong `config.yml`.
