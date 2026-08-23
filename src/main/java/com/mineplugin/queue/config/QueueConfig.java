@@ -47,11 +47,11 @@ public class QueueConfig {
      */
     public synchronized void load(FileConfiguration config) {
         this.enabled = config.getBoolean("queue.enabled", true);
-        this.maxPlayersOverride = config.getInt("queue.max-players-override", -1);
-        this.keepAliveSeconds = config.getLong("queue.keep-alive-seconds", 300L);
-        this.slotReservationSeconds = config.getLong("queue.slot-reservation-seconds", 60L);
-        this.rateLimitSeconds = config.getLong("queue.rate-limit-seconds", 2L);
-        this.maxQueueSize = config.getInt("queue.max-queue-size", 500);
+        this.maxPlayersOverride = Math.max(-1, config.getInt("queue.max-players-override", -1));
+        this.keepAliveSeconds = Math.max(0L, config.getLong("queue.keep-alive-seconds", 300L));
+        this.slotReservationSeconds = Math.max(0L, config.getLong("queue.slot-reservation-seconds", 60L));
+        this.rateLimitSeconds = Math.max(0L, config.getLong("queue.rate-limit-seconds", 2L));
+        this.maxQueueSize = Math.max(0, config.getInt("queue.max-queue-size", 500));
         this.debugLog = config.getBoolean("queue.debug-log", false);
 
         // Load Priorities
@@ -98,7 +98,7 @@ public class QueueConfig {
     }
 
     public long getKeepAliveMs() {
-        return keepAliveSeconds * 1000L;
+        return toMillisSaturated(keepAliveSeconds);
     }
 
     public long getSlotReservationSeconds() {
@@ -106,7 +106,7 @@ public class QueueConfig {
     }
 
     public long getSlotReservationMs() {
-        return slotReservationSeconds * 1000L;
+        return toMillisSaturated(slotReservationSeconds);
     }
 
     public long getRateLimitSeconds() {
@@ -114,7 +114,11 @@ public class QueueConfig {
     }
 
     public long getRateLimitMs() {
-        return rateLimitSeconds * 1000L;
+        return toMillisSaturated(rateLimitSeconds);
+    }
+
+    private static long toMillisSaturated(long seconds) {
+        return seconds > Long.MAX_VALUE / 1000L ? Long.MAX_VALUE : seconds * 1000L;
     }
 
     public int getMaxQueueSize() {

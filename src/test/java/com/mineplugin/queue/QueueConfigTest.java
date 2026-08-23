@@ -62,6 +62,26 @@ public class QueueConfigTest {
     }
 
     @Test
+    @DisplayName("Config Test: Chuẩn hóa giá trị âm và chống tràn số mili-giây")
+    public void testInvalidDurationValuesAreNormalized() {
+        String yaml = """
+            queue:
+              max-players-override: -20
+              keep-alive-seconds: -1
+              slot-reservation-seconds: -2
+              rate-limit-seconds: 9223372036854775807
+              max-queue-size: -10
+            """;
+        QueueConfig config = new QueueConfig(YamlConfiguration.loadConfiguration(new StringReader(yaml)));
+
+        assertEquals(-1, config.getMaxPlayersOverride());
+        assertEquals(0L, config.getKeepAliveSeconds());
+        assertEquals(0L, config.getSlotReservationSeconds());
+        assertEquals(0L, config.getMaxQueueSize());
+        assertEquals(Long.MAX_VALUE, config.getRateLimitMs());
+    }
+
+    @Test
     @DisplayName("Config Test 2: Chuyển đổi mã màu MiniMessage và Legacy (& và §)")
     public void testColorParsing() {
         String yaml = "queue:\n  enabled: true\n";

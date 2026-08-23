@@ -138,14 +138,17 @@ public class QueueManager {
      * Phương thức cốt lõi xử lý xếp hàng, giữ chỗ, kiểm tra timeout và cấp phép vào server.
      */
     public LoginDecision handlePreLogin(UUID uuid, String name, String ipAddress) {
+        Objects.requireNonNull(uuid, "uuid");
         long now = System.currentTimeMillis();
 
         // 1. Kiểm tra Rate Limit chống spam kết nối
-        Long lastAttempt = rateLimitMap.get(uuid);
-        if (lastAttempt != null && (now - lastAttempt) < config.getRateLimitMs()) {
-            return new LoginDecision(LoginResultType.RATE_LIMITED, null);
+        synchronized (rateLimitMap) {
+            Long lastAttempt = rateLimitMap.get(uuid);
+            if (lastAttempt != null && (now - lastAttempt) < config.getRateLimitMs()) {
+                return new LoginDecision(LoginResultType.RATE_LIMITED, null);
+            }
+            rateLimitMap.put(uuid, now);
         }
-        rateLimitMap.put(uuid, now);
 
         // 2. Nếu plugin bị tắt, cho phép vào thẳng
         if (!config.isEnabled()) {
@@ -174,7 +177,7 @@ public class QueueManager {
             QueuedPlayer existingPlayer = queueMap.get(uuid);
 
             // 4. Kiểm tra xem người chơi có Reservation hợp lệ không
-            if (existingPlayer != null && existingPlayer.hasActiveReservation()) {
+            if (existingPlayer != null && existingPlayer.hasActiveReservation() && freeSlots > 0) {
                 // Người chơi đang giữ slot hợp lệ và kết nối lại -> Cho phép vào!
                 queueMap.remove(uuid);
                 inFlightLogins.put(uuid, now);
@@ -237,7 +240,7 @@ public class QueueManager {
                     position,
                     sortedQueue.size(),
                     remainingSec,
-                    queuedPlayer.hasActiveReservation(),
+                    queuedPlayer.hasActiveReservation() && freeSlots > 0,
                     queuedPlayer.getPriority()
             );
 
