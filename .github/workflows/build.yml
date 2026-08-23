@@ -1,31 +1,65 @@
-name: Java CI with Maven & Gradle
+name: Build & Release
 
 on:
   push:
     branches: [ "main", "master" ]
+    tags:
+      - "v*"
   pull_request:
     branches: [ "main", "master" ]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag name for release (ví dụ: v1.0.0)"
+        required: false
+        default: "v1.0.0"
+      draft:
+        description: "Tạo bản nháp (Draft Release)?"
+        type: boolean
+        default: false
+      prerelease:
+        description: "Đánh dấu là bản thử nghiệm (Pre-release)?"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
 
 jobs:
   build:
+    name: Build & Package JAR
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 25
-      uses: actions/setup-java@v4
-      with:
-        java-version: '25'
-        distribution: 'temurin'
-        cache: maven
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: "25"
+          distribution: "temurin"
+          cache: maven
 
-    - name: Build with Maven
-      run: mvn -B package --file pom.xml
+      - name: Build with Maven
+        run: mvn -B clean package --file pom.xml
 
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: StandaloneQueue-Jar
-        path: target/*.jar
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: StandaloneQueue-Jar
+          path: target/StandaloneQueue-*.jar
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/StandaloneQueue-*.jar
+          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
+          name: StandaloneQueue ${{ github.event.inputs.tag_name || github.ref_name }}
+          generate_release_notes: true
+          draft: ${{ github.event.inputs.draft || false }}
+          prerelease: ${{ github.event.inputs.prerelease || false }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
