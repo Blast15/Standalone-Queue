@@ -1,10 +1,25 @@
 # StandaloneQueue
 
+[![Build](https://github.com/BlastSama/StandaloneQueue/actions/workflows/build.yml/badge.svg)](https://github.com/BlastSama/StandaloneQueue/actions/workflows/build.yml)
+[![Paper](https://img.shields.io/badge/Paper-1.21%2B-00a86b)](https://papermc.io/)
+[![Java](https://img.shields.io/badge/Java-25-orange)](https://adoptium.net/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Plugin hàng chờ độc lập cho máy chủ Minecraft Paper, **hoàn toàn không cần máy chủ trung gian (Proxy / BungeeCord / Velocity)**.
 
 **Author:** BlastSama  
 **Version:** 1.0.1
 **Supported API:** Paper 1.21+
+
+StandaloneQueue keeps a full Paper server usable without a proxy: players receive a fair, priority-aware queue while administrators get bounded admission controls for join-bot bursts.
+
+## Documentation
+
+- [Installation and first setup](docs/wiki/Installation.md)
+- [Queue and anti-joinbot configuration](docs/wiki/Configuration.md)
+- [Operations runbook](docs/wiki/Operations.md)
+- [Security model and limitations](docs/wiki/Security.md)
+- [Contributing](CONTRIBUTING.md)
 
 ---
 

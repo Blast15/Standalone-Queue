@@ -1,0 +1,23 @@
+name: Bug report
+description: Report a reproducible problem with StandaloneQueue
+title: "[Bug] "
+body:
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Include the configuration and expected versus actual behavior.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Include StandaloneQueue, Paper, Java, and server mode.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Remove IP addresses, tokens, and personal data before posting.
