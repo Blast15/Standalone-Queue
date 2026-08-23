@@ -3,7 +3,7 @@
 Plugin hàng chờ độc lập cho máy chủ Minecraft Paper, **hoàn toàn không cần máy chủ trung gian (Proxy / BungeeCord / Velocity)**.
 
 **Author:** BlastSama  
-**Version:** 1.0.0  
+**Version:** 1.0.1
 **Supported API:** Paper 1.21+
 
 ---
@@ -65,13 +65,13 @@ Plugin hàng chờ độc lập cho máy chủ Minecraft Paper, **hoàn toàn kh
 ```bash
 mvn clean package
 ```
-File JAR sẽ nằm tại `target/StandaloneQueue-1.0.0.jar`.
+File JAR sẽ nằm tại `target/StandaloneQueue-1.0.1.jar`.
 
 ### Biên dịch với Gradle:
 ```bash
 gradle build
 ```
-File JAR sẽ nằm tại `build/libs/StandaloneQueue-1.0.0.jar`.
+File JAR sẽ nằm tại `build/libs/StandaloneQueue-1.0.1.jar`.
 
 ---
 

@@ -10,9 +10,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: "Tag name for release (ví dụ: v1.0.0)"
+        description: "Tag name for release (ví dụ: v1.0.1)"
         required: false
-        default: "v1.0.0"
+        default: "v1.0.1"
       draft:
         description: "Tạo bản nháp (Draft Release)?"
         type: boolean

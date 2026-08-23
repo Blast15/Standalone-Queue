@@ -1,5 +1,5 @@
 name: StandaloneQueue
-version: 1.0.0
+version: 1.0.1
 main: com.mineplugin.queue.StandaloneQueuePlugin
 api-version: '1.21'
 author: BlastSama

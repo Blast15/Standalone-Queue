@@ -2,6 +2,13 @@
 target/
 build/
 bin/
+out/
+classes/
+*/out/
+*/classes/
+verify*-out/
+javac-out/
+javac-test-out/
 *.class
 
 # IDE and Editor Files
@@ -10,6 +17,7 @@ bin/
 *.ipr
 *.iws
 .vscode/
+.fleet/
 .settings/
 .project
 .classpath
@@ -17,12 +25,19 @@ bin/
 # Gradle and Maven temporary directories
 .gradle/
 .tools/
-.lib/
 pom.xml.tag
 pom.xml.releaseBackup
 pom.xml.versionsBackup
 pom.xml.next
 release.properties
+
+# Local dependency/cache directories
+.lib/
+
+# Reports and local test output
+test-results/
+reports/
+*.hprof
 
 # Logs and Crash Reports
 *.log
