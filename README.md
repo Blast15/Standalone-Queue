@@ -1,6 +1,5 @@
 # StandaloneQueue
 
-[![Build](https://github.com/BlastSama/StandaloneQueue/actions/workflows/build.yml/badge.svg)](https://github.com/BlastSama/StandaloneQueue/actions/workflows/build.yml)
 [![Paper](https://img.shields.io/badge/Paper-1.21%2B-00a86b)](https://papermc.io/)
 [![Java](https://img.shields.io/badge/Java-25-orange)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
