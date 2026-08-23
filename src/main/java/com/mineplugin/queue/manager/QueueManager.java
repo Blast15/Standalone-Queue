@@ -13,7 +13,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Bộ quản lý hàng chờ trung tâm (Queue Engine).
- * Xử lý kiểm soát luồng, slot reservation, keep-alive heartbeat, và thread-safe concurrency.
+ *
+ * @author BlastSama
  */
 public class QueueManager {
 

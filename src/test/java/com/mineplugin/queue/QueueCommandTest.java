@@ -19,7 +19,9 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Kiểm thử toàn diện cho lệnh quản trị hàng chờ /queue (QueueCommand).
+ * Unit test cho QueueCommand.
+ *
+ * @author BlastSama
  */
 public class QueueCommandTest {
 

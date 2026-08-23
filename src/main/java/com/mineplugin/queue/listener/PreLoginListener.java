@@ -13,8 +13,9 @@ import java.net.InetAddress;
 import java.util.UUID;
 
 /**
- * Lắng nghe sự kiện kết nối bất đồng bộ (AsyncPlayerPreLoginEvent).
- * Can thiệp trước khi người chơi vào thế giới để kiểm tra vị trí hàng chờ và quyết định kick / cho phép vào.
+ * Listener xử lý sự kiện AsyncPlayerPreLoginEvent.
+ *
+ * @author BlastSama
  */
 public class PreLoginListener implements Listener {
 

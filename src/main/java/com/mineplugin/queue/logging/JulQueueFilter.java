@@ -8,6 +8,8 @@ import java.util.logging.LogRecord;
 
 /**
  * Bộ lọc java.util.logging cho Bukkit / Paper logger.
+ *
+ * @author BlastSama
  */
 public class JulQueueFilter implements Filter {
 

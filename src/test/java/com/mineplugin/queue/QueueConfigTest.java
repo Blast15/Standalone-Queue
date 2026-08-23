@@ -14,7 +14,9 @@ import java.io.StringReader;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Kiểm thử lớp cấu hình QueueConfig và bộ phân tích MiniMessage / Legacy Color.
+ * Unit test cho QueueConfig.
+ *
+ * @author BlastSama
  */
 public class QueueConfigTest {
 

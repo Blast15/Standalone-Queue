@@ -13,7 +13,7 @@ queue:
   max-players-override: -1
 
   # Thời gian (tính bằng giây) một người chơi có thể giữ vị trí mà không cần kết nối lại.
-  # Theo yêu cầu: 300 giây = 5 phút. Quá thời gian này sẽ bị đá khỏi hàng chờ.
+  # Mặc định: 300 giây (5 phút). Quá thời gian này sẽ bị xóa khỏi hàng chờ.
   keep-alive-seconds: 300
 
   # Thời gian (tính bằng giây) giữ slot trống cho người đứng đầu hàng chờ (#1).

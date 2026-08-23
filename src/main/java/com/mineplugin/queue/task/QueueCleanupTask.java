@@ -4,8 +4,9 @@ import com.mineplugin.queue.manager.QueueManager;
 import org.bukkit.scheduler.BukkitRunnable;
 
 /**
- * Task định kỳ quét và loại bỏ các người chơi quá hạn 5 phút không gửi heartbeat ping,
- * đồng thời kiểm tra giải phóng và chuyển giao slot giữ chỗ đã hết hạn.
+ * Task định kỳ quét timeout và xử lý slot reservation.
+ *
+ * @author BlastSama
  */
 public class QueueCleanupTask extends BukkitRunnable {
 

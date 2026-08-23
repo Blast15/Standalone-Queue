@@ -11,6 +11,12 @@
     <name>StandaloneQueue</name>
     <description>Standalone queue plugin for Paper servers without proxy requirement</description>
 
+    <developers>
+        <developer>
+            <name>BlastSama</name>
+        </developer>
+    </developers>
+
     <properties>
         <java.version>25</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

@@ -10,7 +10,9 @@ import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 /**
- * Lắng nghe các sự kiện đăng nhập, vào game và thoát game của người chơi.
+ * Listener xử lý kết nối, đăng nhập và thoát của người chơi.
+ *
+ * @author BlastSama
  */
 public class PlayerConnectionListener implements Listener {
 

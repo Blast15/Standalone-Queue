@@ -10,8 +10,9 @@ import org.apache.logging.log4j.core.filter.AbstractFilter;
 import org.apache.logging.log4j.message.Message;
 
 /**
- * Bộ lọc Log4j2 can thiệp trực tiếp vào pipeline ghi log của server Paper / Minecraft.
- * Ngăn chặn toàn bộ log disconnect đa dòng của hàng chờ hiển thị lên console trừ khi debugLog = true.
+ * Bộ lọc Log4j2 cho server Paper / Minecraft console.
+ *
+ * @author BlastSama
  */
 public class Log4jQueueFilter extends AbstractFilter {
 

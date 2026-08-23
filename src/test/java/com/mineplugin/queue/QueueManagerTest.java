@@ -18,8 +18,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Bộ kiểm thử tự động toàn diện cho Plugin StandaloneQueue.
- * Bao gồm kiểm thử chức năng, các trường hợp biên (Edge Cases), và kiểm thử tải bất đồng bộ đa luồng.
+ * Unit test cho QueueManager.
+ *
+ * @author BlastSama
  */
 public class QueueManagerTest {
 

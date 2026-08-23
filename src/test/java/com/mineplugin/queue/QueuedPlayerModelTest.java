@@ -10,7 +10,9 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Kiểm thử chi tiết cho QueuedPlayer và QueuePosition models.
+ * Unit test cho QueuedPlayer và QueuePosition models.
+ *
+ * @author BlastSama
  */
 public class QueuedPlayerModelTest {
 

@@ -9,8 +9,8 @@ import java.util.logging.Logger;
 
 /**
  * Quản lý bộ lọc log console (Log4j2 + Java Util Logging).
- * Tự động tắt/ẩn toàn bộ thông báo ngắt kết nối, xếp hàng, kick message rác trên console
- * khi debug-log = false (mặc định), giữ cho console luôn sạch sẽ.
+ *
+ * @author BlastSama
  */
 public class ConsoleFilterManager {
 

@@ -1,7 +1,9 @@
 package com.mineplugin.queue.model;
 
 /**
- * Record chứa thông tin vị trí và thời gian chờ của người chơi để hiển thị lên màn hình kick.
+ * Record chứa thông tin vị trí và thời gian chờ của người chơi.
+ *
+ * @author BlastSama
  */
 public record QueuePosition(
         int position,

@@ -10,7 +10,9 @@ import org.bukkit.configuration.file.FileConfiguration;
 import java.util.*;
 
 /**
- * Quản lý cấu hình plugin và định dạng thông điệp MiniMessage.
+ * Quản lý cấu hình plugin và định dạng thông điệp.
+ *
+ * @author BlastSama
  */
 public class QueueConfig {
 

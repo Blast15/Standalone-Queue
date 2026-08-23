@@ -1,6 +1,10 @@
-# StandaloneQueue - Plugin Hàng Chờ Độc Lập Cho Minecraft
+# StandaloneQueue
 
-Plugin hàng chờ độc lập, **hoàn toàn không cần máy chủ trung gian (Proxy/BungeeCord/Velocity)**.
+Plugin hàng chờ độc lập cho máy chủ Minecraft Paper, **hoàn toàn không cần máy chủ trung gian (Proxy / BungeeCord / Velocity)**.
+
+**Author:** BlastSama  
+**Version:** 1.0.0  
+**Supported API:** Paper 1.21+
 
 ---
 

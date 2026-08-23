@@ -2,7 +2,7 @@ name: StandaloneQueue
 version: 1.0.0
 main: com.mineplugin.queue.StandaloneQueuePlugin
 api-version: '1.21'
-author: Antigravity
+author: BlastSama
 description: Plugin hang cho tu dong khong can proxy cho may chu Paper
 
 commands:

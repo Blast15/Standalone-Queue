@@ -18,10 +18,9 @@ import java.util.logging.LogRecord;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Kiểm thử bộ lọc Console Log:
- * - Khi debug-log = false: Tự động ẩn toàn bộ thông báo ngắt kết nối / hàng chờ rác.
- * - Khi debug-log = true: Cho phép hiển thị log để quản trị viên debug.
- * - Không ảnh hưởng đến các thông báo bình thường của máy chủ (chat, join, quit bình thường).
+ * Unit test cho console filter.
+ *
+ * @author BlastSama
  */
 public class ConsoleFilterTest {
 

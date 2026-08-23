@@ -18,6 +18,8 @@ import java.util.List;
 
 /**
  * Xử lý lệnh quản trị hàng chờ (/queue hoặc /sq, /hangcho).
+ *
+ * @author BlastSama
  */
 public class QueueCommand implements CommandExecutor, TabCompleter {
 

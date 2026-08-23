@@ -11,8 +11,9 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * Main class của StandaloneQueue Plugin.
- * Plugin hàng chờ tự động không cần Proxy cho máy chủ Paper.
+ * Main class cho StandaloneQueue Plugin.
+ *
+ * @author BlastSama
  */
 public final class StandaloneQueuePlugin extends JavaPlugin {
 
@@ -23,23 +24,18 @@ public final class StandaloneQueuePlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        // 1. Tải và lưu cấu hình mặc định
         saveDefaultConfig();
         this.queueConfig = new QueueConfig(getConfig());
 
-        // 2. Khởi tạo Engine quản lý hàng chờ
         this.queueManager = new QueueManager(this, queueConfig);
 
-        // 3. Đăng ký bộ lọc Console Log (Ẩn toàn bộ log rác / disconnect hàng chờ khi debug-log = false)
         this.consoleFilterManager = new com.mineplugin.queue.logging.ConsoleFilterManager(queueConfig, queueManager);
         this.consoleFilterManager.register();
 
-        // 4. Đăng ký các sự kiện (Events)
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(new PreLoginListener(queueManager, queueConfig), this);
         pm.registerEvents(new PlayerConnectionListener(queueManager), this);
 
-        // 5. Đăng ký lệnh điều khiển
         PluginCommand queueCmd = getCommand("queue");
         if (queueCmd != null) {
             QueueCommand executor = new QueueCommand(this, queueManager, queueConfig);
@@ -47,7 +43,6 @@ public final class StandaloneQueuePlugin extends JavaPlugin {
             queueCmd.setTabCompleter(executor);
         }
 
-        // 6. Khởi động Task định kỳ quét timeout và cập nhật slot reservation (chạy mỗi 1 giây / 20 ticks)
         this.cleanupTask = new QueueCleanupTask(queueManager);
         this.cleanupTask.runTaskTimerAsynchronously(this, 20L, 20L);
 

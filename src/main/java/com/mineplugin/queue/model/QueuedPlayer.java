@@ -5,7 +5,8 @@ import java.util.UUID;
 
 /**
  * Đại diện cho một người chơi đang nằm trong hàng chờ.
- * Thread-safe và hỗ trợ theo dõi heartbeat (lastPing), ưu tiên (priority) và giữ chỗ (slot reservation).
+ *
+ * @author BlastSama
  */
 public class QueuedPlayer implements Comparable<QueuedPlayer> {
 
