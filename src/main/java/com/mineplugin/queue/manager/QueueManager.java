@@ -211,7 +211,8 @@ public class QueueManager {
             }
 
             // 7. Cập nhật phân phối Reservation cho những người đứng đầu hàng chờ
-            processReservationsInternal(freeSlots);
+            List<QueuedPlayer> sortedQueue = getSortedQueueInternal();
+            processReservationsInternal(sortedQueue, freeSlots);
 
             // Kiểm tra lại: nếu sau khi phân phối, người chơi này vừa nhận được reservation ngay lúc này
             // và slot trống vẫn còn, cho phép vào ngay lập tức!
@@ -222,7 +223,6 @@ public class QueueManager {
             }
 
             // 8. Tính toán vị trí hiện tại trong hàng chờ
-            List<QueuedPlayer> sortedQueue = getSortedQueueInternal();
             int position = 1;
             for (int i = 0; i < sortedQueue.size(); i++) {
                 if (sortedQueue.get(i).getUuid().equals(uuid)) {
@@ -254,11 +254,17 @@ public class QueueManager {
         if (freeSlots <= 0 || queueMap.isEmpty()) {
             return;
         }
+        processReservationsInternal(getSortedQueueInternal(), freeSlots);
+    }
 
-        List<QueuedPlayer> sorted = getSortedQueueInternal();
+    private void processReservationsInternal(List<QueuedPlayer> sorted, int freeSlots) {
+        if (freeSlots <= 0 || sorted.isEmpty()) {
+            return;
+        }
+
         int allocated = 0;
-
-        for (QueuedPlayer qp : sorted) {
+        for (int i = 0; i < sorted.size(); i++) {
+            QueuedPlayer qp = sorted.get(i);
             if (qp.hasActiveReservation()) {
                 allocated++;
                 continue;
@@ -267,7 +273,7 @@ public class QueueManager {
                 qp.reserveSlot(config.getSlotReservationMs());
                 allocated++;
                 if (config.isDebugLog()) {
-                    plugin.getLogger().info("[Queue] Đã cấp slot giữ chỗ cho: " + qp.getUsername() + " (#" + (sorted.indexOf(qp) + 1) + ")");
+                    plugin.getLogger().info("[Queue] Đã cấp slot giữ chỗ cho: " + qp.getUsername() + " (#" + (i + 1) + ")");
                 }
             } else {
                 break;
@@ -355,19 +361,26 @@ public class QueueManager {
         try {
             inFlightLogins.remove(uuid);
             // Kích hoạt phân phối slot ngay lập tức
-            if (Bukkit.getServer() != null && plugin != null) {
-                Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    lock.writeLock().lock();
-                    try {
-                        int maxCap = getEffectiveMaxPlayers();
-                        int occupied = getActiveOccupiedSlots();
-                        int freeSlots = Math.max(0, maxCap - occupied);
-                        processReservationsInternal(freeSlots);
-                    } finally {
-                        lock.writeLock().unlock();
-                    }
-                }, 1L);
-            } else {
+            boolean scheduled = false;
+            if (Bukkit.getServer() != null && plugin != null && plugin.isEnabled()) {
+                try {
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        lock.writeLock().lock();
+                        try {
+                            int maxCap = getEffectiveMaxPlayers();
+                            int occupied = getActiveOccupiedSlots();
+                            int freeSlots = Math.max(0, maxCap - occupied);
+                            processReservationsInternal(freeSlots);
+                        } finally {
+                            lock.writeLock().unlock();
+                        }
+                    }, 1L);
+                    scheduled = true;
+                } catch (Throwable ignored) {
+                    scheduled = false;
+                }
+            }
+            if (!scheduled) {
                 int maxCap = getEffectiveMaxPlayers();
                 int occupied = getActiveOccupiedSlots();
                 int freeSlots = Math.max(0, maxCap - occupied);
@@ -376,6 +389,16 @@ public class QueueManager {
         } finally {
             lock.writeLock().unlock();
         }
+    }
+
+    /**
+     * Kiểm tra xem người chơi có đang trong quá trình chuyển giao kết nối (handshake / in-flight) hay không.
+     */
+    public boolean isInFlight(UUID uuid) {
+        if (uuid == null) {
+            return false;
+        }
+        return inFlightLogins.containsKey(uuid);
     }
 
     /**
@@ -483,6 +506,27 @@ public class QueueManager {
         try {
             for (QueuedPlayer qp : queueMap.values()) {
                 if (username.equalsIgnoreCase(qp.getUsername())) {
+                    return true;
+                }
+            }
+            return false;
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Kiểm tra nhanh xem chuỗi log có chứa tên của bất kỳ người chơi nào trong hàng chờ hay không.
+     * Thực hiện trực tiếp trên tập hợp values của map mà không cấp phát đối tượng hay sắp xếp danh sách.
+     */
+    public boolean containsAnyQueuedPlayerName(String text) {
+        if (text == null || text.isEmpty()) {
+            return false;
+        }
+        lock.readLock().lock();
+        try {
+            for (QueuedPlayer qp : queueMap.values()) {
+                if (text.contains(qp.getUsername())) {
                     return true;
                 }
             }

@@ -51,7 +51,7 @@ public class QueueCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(config.getAdminMessage("reloaded"));
             }
             case "status" -> {
-                int online = Bukkit.getOnlinePlayers().size();
+                int online = Bukkit.getServer() != null ? Bukkit.getOnlinePlayers().size() : 0;
                 int maxCap = queueManager.getEffectiveMaxPlayers();
                 int override = config.getMaxPlayersOverride();
                 int queueSize = queueManager.getQueueSize();

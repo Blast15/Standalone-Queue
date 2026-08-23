@@ -35,7 +35,13 @@ public class PlayerConnectionListener implements Listener {
                 return;
             }
 
-            // Nếu người chơi có slot giữ chỗ hoặc số người online thực tế chưa vượt override
+            // Nếu người chơi đang trong quá trình handshake đã được duyệt qua PreLogin
+            if (queueManager.isInFlight(player.getUniqueId())) {
+                event.allow();
+                return;
+            }
+
+            // Nếu số người online thực tế chưa vượt override sức chứa
             int online = event.getPlayer().getServer().getOnlinePlayers().size();
             int maxCap = queueManager.getEffectiveMaxPlayers();
             if (online < maxCap) {

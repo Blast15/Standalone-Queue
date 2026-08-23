@@ -128,13 +128,13 @@ public class QueueConfig {
     }
 
     /**
-     * Chuyển đổi chuỗi thành Adventure Component hỗ trợ cả MiniMessage lẫn ký hiệu '&' cổ điển một cách an toàn.
+     * Chuyển đổi chuỗi thành Adventure Component hỗ trợ cả MiniMessage lẫn ký hiệu '&' và '§' cổ điển một cách an toàn.
      */
     public Component parseText(String text) {
         if (text == null || text.isEmpty()) {
             return Component.empty();
         }
-        if (text.contains("&")) {
+        if (text.contains("&") || text.contains("§")) {
             text = convertLegacyToMiniMessage(text);
         }
         try {
@@ -145,6 +145,9 @@ public class QueueConfig {
     }
 
     private String convertLegacyToMiniMessage(String text) {
+        if (text.contains("§")) {
+            text = text.replace("§", "&");
+        }
         return text
                 .replace("&0", "<black>")
                 .replace("&1", "<dark_blue>")

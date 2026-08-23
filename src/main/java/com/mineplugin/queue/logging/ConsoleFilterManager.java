@@ -126,11 +126,7 @@ public class ConsoleFilterManager {
 
         // 3. Kiểm tra log Disconnecting / lost connection của người chơi trong hàng chờ
         if ((text.contains("Disconnecting ") || text.contains("lost connection:")) && queueManager != null) {
-            for (var player : queueManager.getQueueList()) {
-                if (text.contains(player.getUsername())) {
-                    return true;
-                }
-            }
+            return queueManager.containsAnyQueuedPlayerName(text);
         }
 
         return false;

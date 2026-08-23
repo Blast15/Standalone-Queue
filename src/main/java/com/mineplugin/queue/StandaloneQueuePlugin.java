@@ -59,7 +59,7 @@ public final class StandaloneQueuePlugin extends JavaPlugin {
             getLogger().info(" Rate Limit: " + queueConfig.getRateLimitSeconds() + " giay");
             getLogger().info("===============================================");
         } else {
-            getLogger().info("StandaloneQueue v" + getDescription().getVersion() + " đã kích hoạt thành công.");
+            getLogger().info("StandaloneQueue v" + getPluginMeta().getVersion() + " đã kích hoạt thành công.");
         }
     }
 

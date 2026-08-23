@@ -139,6 +139,7 @@ public class QueuedPlayer implements Comparable<QueuedPlayer> {
      */
     @Override
     public int compareTo(QueuedPlayer other) {
+        if (this == other) return 0;
         if (other == null) return -1;
         if (this.uuid.equals(other.uuid)) return 0;
 
