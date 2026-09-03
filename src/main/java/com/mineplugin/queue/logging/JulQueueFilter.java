@@ -26,6 +26,9 @@ public class JulQueueFilter implements Filter {
         if (record == null || (config != null && config.isDebugLog())) {
             return true;
         }
+        if (record.getThrown() != null || record.getLevel().intValue() >= java.util.logging.Level.WARNING.intValue()) {
+            return true;
+        }
 
         String msg = record.getMessage();
         if (ConsoleFilterManager.isQueueMessage(msg, config, queueManager)) {

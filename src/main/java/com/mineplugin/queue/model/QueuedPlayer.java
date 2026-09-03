@@ -15,7 +15,7 @@ public class QueuedPlayer implements Comparable<QueuedPlayer> {
     private final UUID uuid;
     private final String username;
     private final String ipAddress;
-    private final long sequenceNumber;
+    private volatile long sequenceNumber;
     private final long firstJoinedTimestamp;
 
     private volatile long lastPingTimestamp;
@@ -93,7 +93,8 @@ public class QueuedPlayer implements Comparable<QueuedPlayer> {
      * @param durationMs Thời gian giữ slot (mili-giây)
      */
     public void reserveSlot(long durationMs) {
-        this.slotReservedUntilTimestamp = System.currentTimeMillis() + durationMs;
+        long now = System.currentTimeMillis();
+        this.slotReservedUntilTimestamp = durationMs > Long.MAX_VALUE - now ? Long.MAX_VALUE : now + durationMs;
     }
 
     /**
@@ -101,6 +102,12 @@ public class QueuedPlayer implements Comparable<QueuedPlayer> {
      */
     public void clearReservation() {
         this.slotReservedUntilTimestamp = 0L;
+    }
+
+    /** Moves an expired reservation holder behind current peers at the same priority. */
+    public void requeueAfterExpiredReservation() {
+        clearReservation();
+        sequenceNumber = SEQUENCE_GENERATOR.incrementAndGet();
     }
 
     /**

@@ -28,6 +28,7 @@ public final class StandaloneQueuePlugin extends JavaPlugin {
         this.queueConfig = new QueueConfig(getConfig());
 
         this.queueManager = new QueueManager(this, queueConfig);
+        this.queueManager.refreshServerCapacity();
 
         this.consoleFilterManager = new com.mineplugin.queue.logging.ConsoleFilterManager(queueConfig, queueManager);
         this.consoleFilterManager.register();
@@ -67,7 +68,7 @@ public final class StandaloneQueuePlugin extends JavaPlugin {
             cleanupTask.cancel();
         }
         if (queueManager != null) {
-            queueManager.clearQueue();
+            queueManager.clearRuntimeState();
         }
         getLogger().info("StandaloneQueue Plugin da duoc tat.");
     }

@@ -24,7 +24,7 @@ queue:
   # Giới hạn thời gian tối thiểu giữa các lần kết nối (tính bằng giây) để chống spam bot / DDoS.
   rate-limit-seconds: 2
 
-  # Giới hạn số lượng người tối đa có thể ở trong hàng chờ cùng lúc (0 = không giới hạn).
+  # Giới hạn số lượng người tối đa có thể ở trong hàng chờ cùng lúc (phải lớn hơn 0).
   max-queue-size: 500
 
   # Bảo vệ admission trước join-bot, đặc biệt cần thiết trên server crack.

@@ -33,6 +33,9 @@ public class Log4jQueueFilter extends AbstractFilter {
         if (event == null || (config != null && config.isDebugLog())) {
             return Result.NEUTRAL;
         }
+        if (event.getThrown() != null || event.getLevel().isMoreSpecificThan(Level.WARN)) {
+            return Result.NEUTRAL;
+        }
         String msg = event.getMessage() != null ? event.getMessage().getFormattedMessage() : null;
         if (shouldFilter(msg)) {
             return Result.DENY;
@@ -42,6 +45,7 @@ public class Log4jQueueFilter extends AbstractFilter {
 
     @Override
     public Result filter(Logger logger, Level level, Marker marker, Message msg, Throwable t) {
+        if (t != null || (level != null && level.isMoreSpecificThan(Level.WARN))) return Result.NEUTRAL;
         if (msg != null && shouldFilter(msg.getFormattedMessage())) {
             return Result.DENY;
         }
@@ -50,6 +54,7 @@ public class Log4jQueueFilter extends AbstractFilter {
 
     @Override
     public Result filter(Logger logger, Level level, Marker marker, Object msg, Throwable t) {
+        if (t != null || (level != null && level.isMoreSpecificThan(Level.WARN))) return Result.NEUTRAL;
         if (msg != null && shouldFilter(msg.toString())) {
             return Result.DENY;
         }
@@ -58,6 +63,7 @@ public class Log4jQueueFilter extends AbstractFilter {
 
     @Override
     public Result filter(Logger logger, Level level, Marker marker, String msg, Object... params) {
+        if (level != null && level.isMoreSpecificThan(Level.WARN)) return Result.NEUTRAL;
         if (shouldFilter(msg)) {
             return Result.DENY;
         }

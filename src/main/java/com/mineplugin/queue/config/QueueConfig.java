@@ -54,16 +54,16 @@ public class QueueConfig {
     public synchronized void load(FileConfiguration config) {
         this.enabled = config.getBoolean("queue.enabled", true);
         this.maxPlayersOverride = Math.max(-1, config.getInt("queue.max-players-override", -1));
-        this.keepAliveSeconds = Math.max(0L, config.getLong("queue.keep-alive-seconds", 300L));
-        this.slotReservationSeconds = Math.max(0L, config.getLong("queue.slot-reservation-seconds", 60L));
+        this.keepAliveSeconds = positiveOrDefault(config.getLong("queue.keep-alive-seconds", 300L), 300L);
+        this.slotReservationSeconds = positiveOrDefault(config.getLong("queue.slot-reservation-seconds", 60L), 60L);
         this.rateLimitSeconds = Math.max(0L, config.getLong("queue.rate-limit-seconds", 2L));
-        this.maxQueueSize = Math.max(0, config.getInt("queue.max-queue-size", 500));
+        this.maxQueueSize = positiveOrDefault(config.getInt("queue.max-queue-size", 500), 500);
         this.debugLog = config.getBoolean("queue.debug-log", false);
         this.antiBotEnabled = config.getBoolean("queue.anti-bot.enabled", false);
         this.antiBotWindowSeconds = Math.max(1L, config.getLong("queue.anti-bot.window-seconds", 10L));
-        this.antiBotMaxAttemptsPerIp = Math.max(0, config.getInt("queue.anti-bot.max-attempts-per-ip", 20));
-        this.antiBotMaxQueuedPerIp = Math.max(0, config.getInt("queue.anti-bot.max-queued-per-ip", 5));
-        this.antiBotGlobalAttemptsPerWindow = Math.max(0, config.getInt("queue.anti-bot.global-attempts-per-window", 100));
+        this.antiBotMaxAttemptsPerIp = positiveOrDefault(config.getInt("queue.anti-bot.max-attempts-per-ip", 20), 20);
+        this.antiBotMaxQueuedPerIp = positiveOrDefault(config.getInt("queue.anti-bot.max-queued-per-ip", 5), 5);
+        this.antiBotGlobalAttemptsPerWindow = positiveOrDefault(config.getInt("queue.anti-bot.global-attempts-per-window", 100), 100);
 
         // Load Priorities
         permissionPriorities.clear();
@@ -96,35 +96,35 @@ public class QueueConfig {
         }
     }
 
-    public boolean isEnabled() {
+    public synchronized boolean isEnabled() {
         return enabled;
     }
 
-    public int getMaxPlayersOverride() {
+    public synchronized int getMaxPlayersOverride() {
         return maxPlayersOverride;
     }
 
-    public long getKeepAliveSeconds() {
+    public synchronized long getKeepAliveSeconds() {
         return keepAliveSeconds;
     }
 
-    public long getKeepAliveMs() {
+    public synchronized long getKeepAliveMs() {
         return toMillisSaturated(keepAliveSeconds);
     }
 
-    public long getSlotReservationSeconds() {
+    public synchronized long getSlotReservationSeconds() {
         return slotReservationSeconds;
     }
 
-    public long getSlotReservationMs() {
+    public synchronized long getSlotReservationMs() {
         return toMillisSaturated(slotReservationSeconds);
     }
 
-    public long getRateLimitSeconds() {
+    public synchronized long getRateLimitSeconds() {
         return rateLimitSeconds;
     }
 
-    public long getRateLimitMs() {
+    public synchronized long getRateLimitMs() {
         return toMillisSaturated(rateLimitSeconds);
     }
 
@@ -132,24 +132,32 @@ public class QueueConfig {
         return seconds > Long.MAX_VALUE / 1000L ? Long.MAX_VALUE : seconds * 1000L;
     }
 
-    public int getMaxQueueSize() {
+    private static long positiveOrDefault(long value, long fallback) {
+        return value > 0 ? value : fallback;
+    }
+
+    private static int positiveOrDefault(int value, int fallback) {
+        return value > 0 ? value : fallback;
+    }
+
+    public synchronized int getMaxQueueSize() {
         return maxQueueSize;
     }
 
-    public boolean isDebugLog() {
+    public synchronized boolean isDebugLog() {
         return debugLog;
     }
 
-    public boolean isAntiBotEnabled() { return antiBotRuntimeOverride != null ? antiBotRuntimeOverride : antiBotEnabled; }
-    public void setAntiBotRuntimeOverride(Boolean enabled) { this.antiBotRuntimeOverride = enabled; }
-    public void clearRuntimeOverrides() { this.antiBotRuntimeOverride = null; }
-    public long getAntiBotWindowMs() { return toMillisSaturated(antiBotWindowSeconds); }
-    public int getAntiBotMaxAttemptsPerIp() { return antiBotMaxAttemptsPerIp; }
-    public int getAntiBotMaxQueuedPerIp() { return antiBotMaxQueuedPerIp; }
-    public int getAntiBotGlobalAttemptsPerWindow() { return antiBotGlobalAttemptsPerWindow; }
+    public synchronized boolean isAntiBotEnabled() { return antiBotRuntimeOverride != null ? antiBotRuntimeOverride : antiBotEnabled; }
+    public synchronized void setAntiBotRuntimeOverride(Boolean enabled) { this.antiBotRuntimeOverride = enabled; }
+    public synchronized void clearRuntimeOverrides() { this.antiBotRuntimeOverride = null; }
+    public synchronized long getAntiBotWindowMs() { return toMillisSaturated(antiBotWindowSeconds); }
+    public synchronized int getAntiBotMaxAttemptsPerIp() { return antiBotMaxAttemptsPerIp; }
+    public synchronized int getAntiBotMaxQueuedPerIp() { return antiBotMaxQueuedPerIp; }
+    public synchronized int getAntiBotGlobalAttemptsPerWindow() { return antiBotGlobalAttemptsPerWindow; }
 
-    public Map<String, Integer> getPermissionPriorities() {
-        return Collections.unmodifiableMap(permissionPriorities);
+    public synchronized Map<String, Integer> getPermissionPriorities() {
+        return Map.copyOf(permissionPriorities);
     }
 
     /**
@@ -201,7 +209,7 @@ public class QueueConfig {
     /**
      * Định dạng thông điệp đá ra màn hình ngắt kết nối cho người đang xếp hàng.
      */
-    public Component formatKickInQueue(QueuePosition pos, int onlineCount, int maxCapacity) {
+    public synchronized Component formatKickInQueue(QueuePosition pos, int onlineCount, int maxCapacity) {
         String msg = rawKickInQueue
                 .replace("<position>", String.valueOf(pos.position()))
                 .replace("<total>", String.valueOf(pos.total()))
@@ -214,23 +222,23 @@ public class QueueConfig {
         return parseText(msg);
     }
 
-    public Component formatKickSlotReady() {
+    public synchronized Component formatKickSlotReady() {
         return parseText(rawKickSlotReady);
     }
 
-    public Component formatKickRateLimited() {
+    public synchronized Component formatKickRateLimited() {
         return parseText(rawKickRateLimited);
     }
 
-    public Component formatKickQueueFull(int total) {
+    public synchronized Component formatKickQueueFull(int total) {
         return parseText(rawKickQueueFull.replace("<total>", String.valueOf(total)));
     }
 
-    public Component formatKickReservationExpired(long seconds) {
+    public synchronized Component formatKickReservationExpired(long seconds) {
         return parseText(rawKickReservationExpired.replace("<time>", String.valueOf(seconds)));
     }
 
-    public Component getAdminMessage(String key, String... replacements) {
+    public synchronized Component getAdminMessage(String key, String... replacements) {
         String msg = adminMessages.getOrDefault(key, "<red>Missing message: " + key + "</red>");
         for (int i = 0; i < replacements.length - 1; i += 2) {
             String placeholder = replacements[i];
@@ -240,7 +248,7 @@ public class QueueConfig {
         return parseText(rawPrefix + msg);
     }
 
-    public Component getRawAdminMessage(String key, String... replacements) {
+    public synchronized Component getRawAdminMessage(String key, String... replacements) {
         String msg = adminMessages.getOrDefault(key, "<red>Missing message: " + key + "</red>");
         for (int i = 0; i < replacements.length - 1; i += 2) {
             String placeholder = replacements[i];

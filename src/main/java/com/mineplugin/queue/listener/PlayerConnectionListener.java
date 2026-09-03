@@ -43,12 +43,13 @@ public class PlayerConnectionListener implements Listener {
                 return;
             }
 
-            // Nếu số người online thực tế chưa vượt override sức chứa
-            int online = event.getPlayer().getServer().getOnlinePlayers().size();
-            int maxCap = queueManager.getEffectiveMaxPlayers();
-            if (online < maxCap) {
-                event.allow();
-            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerLoginComplete(PlayerLoginEvent event) {
+        if (event.getResult() != PlayerLoginEvent.Result.ALLOWED) {
+            queueManager.releaseInFlight(event.getPlayer().getUniqueId());
         }
     }
 

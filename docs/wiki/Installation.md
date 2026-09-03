@@ -5,4 +5,4 @@
 3. Start the server once to generate `plugins/StandaloneQueue/config.yml`.
 4. Review queue and anti-bot limits, then run `/queue reload`.
 
-The plugin targets Paper 1.21+ and Java 25. No proxy is required.
+The plugin targets Paper 1.21+ and Java 21. No proxy is required.

@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
@@ -18,24 +19,31 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public class QueueManager {
 
+    private static final int MAX_TRACKED_IDENTITIES = 4096;
+    private static final long IN_FLIGHT_TIMEOUT_MS = 15_000L;
+
     private final StandaloneQueuePlugin plugin;
     private final QueueConfig config;
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
     // Map lưu thông tin người chơi trong hàng chờ: UUID -> QueuedPlayer
     private final Map<UUID, QueuedPlayer> queueMap = new HashMap<>();
+    private List<QueuedPlayer> sortedSnapshot = List.of();
+    private boolean queueOrderDirty = true;
 
     // Theo dõi người chơi đang trong quá trình chuyển giao kết nối (đã qua PreLogin nhưng chưa vào JoinEvent)
     // UUID -> Timestamp lúc được duyệt qua PreLogin
     private final Map<UUID, Long> inFlightLogins = new ConcurrentHashMap<>();
 
     // Theo dõi thời điểm kết nối gần nhất để chống spam (UUID -> Timestamp)
-    private final Map<UUID, Long> rateLimitMap = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> rateLimitMap = new LinkedHashMap<>(256, 0.75f, true);
     private final Map<String, ArrayDeque<Long>> ipAttemptWindows = new HashMap<>();
     private final ArrayDeque<Long> globalAttemptWindow = new ArrayDeque<>();
 
     // Cache quyền hạn của người chơi (UUID -> Set<Permission>)
-    private final Map<UUID, Set<String>> permissionCache = new ConcurrentHashMap<>();
+    private final Map<UUID, Set<String>> permissionCache = new LinkedHashMap<>(256, 0.75f, true);
+    private final AtomicInteger onlinePlayers = new AtomicInteger();
+    private final AtomicInteger serverMaxPlayers = new AtomicInteger(20);
 
     public QueueManager(StandaloneQueuePlugin plugin, QueueConfig config) {
         this.plugin = plugin;
@@ -64,7 +72,7 @@ public class QueueManager {
         if (override > 0) {
             return override;
         }
-        return Bukkit.getServer() != null ? Bukkit.getMaxPlayers() : 20;
+        return serverMaxPlayers.get();
     }
 
     /**
@@ -72,9 +80,11 @@ public class QueueManager {
      * Online Players + In-Flight Logins (đang trong quá trình handshake).
      */
     public int getActiveOccupiedSlots() {
-        cleanInFlightLogins();
-        int onlineCount = Bukkit.getServer() != null ? Bukkit.getOnlinePlayers().size() : 0;
-        return onlineCount + inFlightLogins.size();
+        return onlinePlayers.get() + inFlightLogins.size();
+    }
+
+    public int getOnlinePlayerCount() {
+        return onlinePlayers.get();
     }
 
     /**
@@ -82,7 +92,23 @@ public class QueueManager {
      */
     private void cleanInFlightLogins() {
         long now = System.currentTimeMillis();
-        inFlightLogins.entrySet().removeIf(entry -> (now - entry.getValue()) > 15_000L);
+        inFlightLogins.entrySet().removeIf(entry -> elapsed(now, entry.getValue()) > IN_FLIGHT_TIMEOUT_MS);
+    }
+
+    private static long elapsed(long now, long then) {
+        return now >= then ? now - then : 0L;
+    }
+
+    /** Refreshes Bukkit-owned capacity state. Must only be called from the server thread. */
+    public void refreshServerCapacity() {
+        if (Bukkit.getServer() != null) {
+            onlinePlayers.set(Bukkit.getOnlinePlayers().size());
+            serverMaxPlayers.set(Math.max(0, Bukkit.getMaxPlayers()));
+        }
+    }
+
+    void setOnlinePlayersForTesting(int count) {
+        onlinePlayers.set(Math.max(0, count));
     }
 
     /**
@@ -98,14 +124,22 @@ public class QueueManager {
                 perms.add(perm);
             }
         }
-        permissionCache.put(player.getUniqueId(), perms);
+        synchronized (permissionCache) {
+            if (permissionCache.size() >= MAX_TRACKED_IDENTITIES && !permissionCache.containsKey(player.getUniqueId())) {
+                permissionCache.remove(permissionCache.keySet().iterator().next());
+            }
+            permissionCache.put(player.getUniqueId(), Set.copyOf(perms));
+        }
     }
 
     /**
      * Tính toán trọng số ưu tiên của người chơi dựa trên cache hoặc quyền.
      */
     public int calculatePriority(UUID uuid) {
-        Set<String> perms = permissionCache.get(uuid);
+        Set<String> perms;
+        synchronized (permissionCache) {
+            perms = permissionCache.get(uuid);
+        }
         if (perms == null || perms.isEmpty()) {
             return 0;
         }
@@ -123,15 +157,10 @@ public class QueueManager {
      * Tự động cho phép OP (kể cả khi vừa khởi động server chưa online).
      */
     public boolean hasBypassPermission(UUID uuid) {
-        if (Bukkit.getServer() != null) {
-            try {
-                org.bukkit.OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);
-                if (offlinePlayer.isOp()) {
-                    return true;
-                }
-            } catch (Exception ignored) {}
+        Set<String> perms;
+        synchronized (permissionCache) {
+            perms = permissionCache.get(uuid);
         }
-        Set<String> perms = permissionCache.get(uuid);
         return perms != null && perms.contains("queue.bypass");
     }
 
@@ -140,6 +169,12 @@ public class QueueManager {
      * Phương thức cốt lõi xử lý xếp hàng, giữ chỗ, kiểm tra timeout và cấp phép vào server.
      */
     public LoginDecision handlePreLogin(UUID uuid, String name, String ipAddress) {
+        synchronized (config) {
+            return handlePreLoginWithConfigSnapshot(uuid, name, ipAddress);
+        }
+    }
+
+    private LoginDecision handlePreLoginWithConfigSnapshot(UUID uuid, String name, String ipAddress) {
         Objects.requireNonNull(uuid, "uuid");
         long now = System.currentTimeMillis();
 
@@ -153,6 +188,12 @@ public class QueueManager {
             if (lastAttempt != null && (now - lastAttempt) < config.getRateLimitMs()) {
                 return new LoginDecision(LoginResultType.RATE_LIMITED, null);
             }
+            if (lastAttempt == null && rateLimitMap.size() >= MAX_TRACKED_IDENTITIES) {
+                rateLimitMap.entrySet().removeIf(entry -> elapsed(now, entry.getValue()) > 60_000L);
+                if (rateLimitMap.size() >= MAX_TRACKED_IDENTITIES) {
+                    rateLimitMap.remove(rateLimitMap.keySet().iterator().next());
+                }
+            }
             rateLimitMap.put(uuid, now);
         }
 
@@ -165,7 +206,12 @@ public class QueueManager {
         if (hasBypassPermission(uuid)) {
             lock.writeLock().lock();
             try {
+                cleanInFlightLogins();
+                if (inFlightLogins.containsKey(uuid)) {
+                    return new LoginDecision(LoginResultType.RATE_LIMITED, null);
+                }
                 queueMap.remove(uuid);
+                queueOrderDirty = true;
                 inFlightLogins.put(uuid, now);
             } finally {
                 lock.writeLock().unlock();
@@ -176,6 +222,9 @@ public class QueueManager {
         lock.writeLock().lock();
         try {
             cleanInFlightLogins();
+            if (inFlightLogins.containsKey(uuid)) {
+                return new LoginDecision(LoginResultType.RATE_LIMITED, null);
+            }
             int maxCap = getEffectiveMaxPlayers();
             int occupied = getActiveOccupiedSlots();
             int freeSlots = Math.max(0, maxCap - occupied);
@@ -192,6 +241,7 @@ public class QueueManager {
             if (existingPlayer != null && existingPlayer.hasActiveReservation() && freeSlots > 0) {
                 // Người chơi đang giữ slot hợp lệ và kết nối lại -> Cho phép vào!
                 queueMap.remove(uuid);
+                queueOrderDirty = true;
                 inFlightLogins.put(uuid, now);
                 if (config.isDebugLog()) {
                     plugin.getLogger().info("[Queue] Người chơi " + name + " đã kích hoạt slot giữ chỗ thành công và vào game.");
@@ -213,7 +263,10 @@ public class QueueManager {
             if (existingPlayer != null) {
                 queuedPlayer = existingPlayer;
                 queuedPlayer.recordPing(); // Cập nhật thời gian Heartbeat (5 phút tính từ thời điểm này)
-                queuedPlayer.setPriority(priority);
+                if (queuedPlayer.getPriority() != priority) {
+                    queuedPlayer.setPriority(priority);
+                    queueOrderDirty = true;
+                }
             } else {
                 // Kiểm tra giới hạn số lượng tối đa của hàng chờ
                 if (config.getMaxQueueSize() > 0 && queueMap.size() >= config.getMaxQueueSize()) {
@@ -221,6 +274,7 @@ public class QueueManager {
                 }
                 queuedPlayer = new QueuedPlayer(uuid, name, ipAddress, priority);
                 queueMap.put(uuid, queuedPlayer);
+                queueOrderDirty = true;
                 if (config.isDebugLog()) {
                     plugin.getLogger().info("[Queue] Thêm người chơi " + name + " vào hàng chờ (Priority: " + priority + ")");
                 }
@@ -234,6 +288,7 @@ public class QueueManager {
             // và slot trống vẫn còn, cho phép vào ngay lập tức!
             if (queuedPlayer.hasActiveReservation() && (maxCap - getActiveOccupiedSlots()) > 0) {
                 queueMap.remove(uuid);
+                queueOrderDirty = true;
                 inFlightLogins.put(uuid, now);
                 return new LoginDecision(LoginResultType.ALLOWED_RESERVED, null);
             }
@@ -294,32 +349,26 @@ public class QueueManager {
      * Phân phối reservation cho các slot trống (yêu cầu gọi bên trong writeLock).
      */
     private void processReservationsInternal(int freeSlots) {
-        if (freeSlots <= 0 || queueMap.isEmpty()) {
+        if (queueMap.isEmpty()) {
             return;
         }
         processReservationsInternal(getSortedQueueInternal(), freeSlots);
     }
 
     private void processReservationsInternal(List<QueuedPlayer> sorted, int freeSlots) {
-        if (freeSlots <= 0 || sorted.isEmpty()) {
+        if (sorted.isEmpty()) {
             return;
         }
 
-        int allocated = 0;
         for (int i = 0; i < sorted.size(); i++) {
             QueuedPlayer qp = sorted.get(i);
-            if (qp.hasActiveReservation()) {
-                allocated++;
-                continue;
-            }
-            if (allocated < freeSlots) {
+            if (i < freeSlots && !qp.hasActiveReservation()) {
                 qp.reserveSlot(config.getSlotReservationMs());
-                allocated++;
                 if (config.isDebugLog()) {
                     plugin.getLogger().info("[Queue] Đã cấp slot giữ chỗ cho: " + qp.getUsername() + " (#" + (i + 1) + ")");
                 }
-            } else {
-                break;
+            } else if (i >= freeSlots && qp.hasActiveReservation()) {
+                qp.clearReservation();
             }
         }
     }
@@ -328,9 +377,13 @@ public class QueueManager {
      * Lấy danh sách hàng chờ đã sắp xếp theo Priority và Thời gian vào hàng (yêu cầu gọi bên trong lock).
      */
     private List<QueuedPlayer> getSortedQueueInternal() {
-        List<QueuedPlayer> list = new ArrayList<>(queueMap.values());
-        Collections.sort(list);
-        return list;
+        if (queueOrderDirty) {
+            ArrayList<QueuedPlayer> list = new ArrayList<>(queueMap.values());
+            Collections.sort(list);
+            sortedSnapshot = List.copyOf(list);
+            queueOrderDirty = false;
+        }
+        return sortedSnapshot;
     }
 
     /**
@@ -339,9 +392,17 @@ public class QueueManager {
      * 2. Xóa các slot reservation đã hết hạn và chuyển lượt cho người tiếp theo.
      */
     public void cleanupTick() {
+        synchronized (config) {
+            cleanupTickWithConfigSnapshot();
+        }
+    }
+
+    private void cleanupTickWithConfigSnapshot() {
         // Dọn dẹp rateLimitMap (xóa các bản ghi quá 60s để tránh rò rỉ bộ nhớ)
         long now = System.currentTimeMillis();
-        rateLimitMap.entrySet().removeIf(entry -> (now - entry.getValue()) > 60_000L);
+        synchronized (rateLimitMap) {
+            rateLimitMap.entrySet().removeIf(entry -> elapsed(now, entry.getValue()) > 60_000L);
+        }
         synchronized (globalAttemptWindow) {
             long cutoff = now - config.getAntiBotWindowMs();
             while (!globalAttemptWindow.isEmpty() && globalAttemptWindow.peekFirst() <= cutoff) globalAttemptWindow.removeFirst();
@@ -362,12 +423,14 @@ public class QueueManager {
 
                 if (qp.isKeepAliveExpired(maxKeepAliveMs)) {
                     iterator.remove();
+                    queueOrderDirty = true;
                     if (config.isDebugLog()) {
                         plugin.getLogger().info("[Queue] Người chơi " + qp.getUsername() + " đã bị xóa khỏi hàng chờ do quá 5 phút không ping.");
                     }
                 } else if (qp.isReservationExpired()) {
                     // Hết hạn giữ slot -> Thu hồi slot reservation
-                    qp.clearReservation();
+                    qp.requeueAfterExpiredReservation();
+                    queueOrderDirty = true;
                     if (config.isDebugLog()) {
                         plugin.getLogger().info("[Queue] Thu hồi slot giữ chỗ của " + qp.getUsername() + " do quá thời hạn giữ slot.");
                     }
@@ -390,11 +453,13 @@ public class QueueManager {
      */
     public void onPlayerJoin(Player player) {
         UUID uuid = player.getUniqueId();
+        cachePlayerPermissions(player);
+        refreshServerCapacity();
         lock.writeLock().lock();
         try {
             inFlightLogins.remove(uuid);
             queueMap.remove(uuid);
-            cachePlayerPermissions(player);
+            queueOrderDirty = true;
         } finally {
             lock.writeLock().unlock();
         }
@@ -406,35 +471,21 @@ public class QueueManager {
      */
     public void onPlayerQuit(Player player) {
         UUID uuid = player.getUniqueId();
+        cachePlayerPermissions(player);
+        onlinePlayers.updateAndGet(current -> Math.max(0, current - 1));
+        synchronized (config) {
+            onPlayerQuitWithConfigSnapshot(uuid);
+        }
+    }
+
+    private void onPlayerQuitWithConfigSnapshot(UUID uuid) {
         lock.writeLock().lock();
         try {
             inFlightLogins.remove(uuid);
-            // Kích hoạt phân phối slot ngay lập tức
-            boolean scheduled = false;
-            if (Bukkit.getServer() != null && plugin != null && plugin.isEnabled()) {
-                try {
-                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                        lock.writeLock().lock();
-                        try {
-                            int maxCap = getEffectiveMaxPlayers();
-                            int occupied = getActiveOccupiedSlots();
-                            int freeSlots = Math.max(0, maxCap - occupied);
-                            processReservationsInternal(freeSlots);
-                        } finally {
-                            lock.writeLock().unlock();
-                        }
-                    }, 1L);
-                    scheduled = true;
-                } catch (Throwable ignored) {
-                    scheduled = false;
-                }
-            }
-            if (!scheduled) {
-                int maxCap = getEffectiveMaxPlayers();
-                int occupied = getActiveOccupiedSlots();
-                int freeSlots = Math.max(0, maxCap - occupied);
-                processReservationsInternal(freeSlots);
-            }
+            int maxCap = getEffectiveMaxPlayers();
+            int occupied = getActiveOccupiedSlots();
+            int freeSlots = Math.max(0, maxCap - occupied);
+            processReservationsInternal(freeSlots);
         } finally {
             lock.writeLock().unlock();
         }
@@ -448,6 +499,28 @@ public class QueueManager {
             return false;
         }
         return inFlightLogins.containsKey(uuid);
+    }
+
+    public void releaseInFlight(UUID uuid) {
+        if (uuid != null) {
+            inFlightLogins.remove(uuid);
+        }
+    }
+
+    public int getInFlightCount() {
+        return inFlightLogins.size();
+    }
+
+    public int getTrackedRateLimitCount() {
+        synchronized (rateLimitMap) {
+            return rateLimitMap.size();
+        }
+    }
+
+    public int getTrackedIpCount() {
+        synchronized (globalAttemptWindow) {
+            return ipAttemptWindows.size();
+        }
     }
 
     /**
@@ -500,7 +573,29 @@ public class QueueManager {
         try {
             int size = queueMap.size();
             queueMap.clear();
+            queueOrderDirty = true;
             return size;
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    public void clearRuntimeState() {
+        lock.writeLock().lock();
+        try {
+            queueMap.clear();
+            queueOrderDirty = true;
+            inFlightLogins.clear();
+            synchronized (rateLimitMap) {
+                rateLimitMap.clear();
+            }
+            synchronized (permissionCache) {
+                permissionCache.clear();
+            }
+            synchronized (globalAttemptWindow) {
+                globalAttemptWindow.clear();
+                ipAttemptWindows.clear();
+            }
         } finally {
             lock.writeLock().unlock();
         }
@@ -521,6 +616,7 @@ public class QueueManager {
             }
             if (targetUuid != null) {
                 queueMap.remove(targetUuid);
+                queueOrderDirty = true;
                 return true;
             }
             return false;

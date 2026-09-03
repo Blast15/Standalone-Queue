@@ -1,7 +1,7 @@
 # StandaloneQueue
 
 [![Paper](https://img.shields.io/badge/Paper-1.21%2B-00a86b)](https://papermc.io/)
-[![Java](https://img.shields.io/badge/Java-25-orange)](https://adoptium.net/)
+[![Java](https://img.shields.io/badge/Java-21-orange)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Plugin hàng chờ độc lập cho máy chủ Minecraft Paper, **hoàn toàn không cần máy chủ trung gian (Proxy / BungeeCord / Velocity)**.
@@ -34,8 +34,8 @@ StandaloneQueue keeps a full Paper server usable without a proxy: players receiv
    - Khi có người trong server thoát ra, vị trí trống sẽ được **cấp quyền giữ chỗ riêng (Reservation)** cho người đứng đầu hàng chờ (#1) trong 60 giây (tùy chỉnh).
    - Những người đứng sau (#2, #3,...) hay người mới dù có spam Reconnect trước cũng không thể cướp slot này.
    - Khi người #1 kết nối lại trong thời gian giữ chỗ, họ sẽ được đưa thẳng vào máy chủ thành công.
-4. **Xử lý Bất đồng bộ & An Toàn Tuyệt Đối (Thread-Safety)**:
-   - Sử dụng `ReentrantReadWriteLock` ngăn ngừa 100% tình trạng Race Condition khi nhiều người kết nối cùng lúc.
+4. **Xử lý Bất đồng bộ & An Toàn (Thread-Safety)**:
+   - Admission, in-flight login và reservation được cập nhật nguyên tử dưới cùng một khóa trạng thái.
    - Tích hợp kiểm soát In-Flight Logins (chống overfilling khi nhiều người cùng lúc qua màn hình đăng nhập).
    - Tích hợp Rate-Limit chống bot spam connection.
 5. **Bảo vệ Join-Bot cho máy chủ crack**:

@@ -119,6 +119,31 @@ public class ConsoleFilterTest {
     }
 
     @Test
+    @DisplayName("Console filter never hides warnings or exceptions")
+    public void testWarningsAndExceptionsAreNeverFiltered() {
+        QueueConfig config = new QueueConfig(YamlConfiguration.loadConfiguration(new StringReader("""
+            queue:
+              debug-log: false
+            """)));
+        QueueManager queueManager = new QueueManager(null, config);
+        String queueText = "HÀNG CHỜ ĐÃ ĐẦY";
+
+        JulQueueFilter jul = new JulQueueFilter(config, queueManager);
+        LogRecord warning = new LogRecord(Level.WARNING, queueText);
+        assertTrue(jul.isLoggable(warning));
+        LogRecord failure = new LogRecord(Level.INFO, queueText);
+        failure.setThrown(new IllegalStateException("boom"));
+        assertTrue(jul.isLoggable(failure));
+
+        Log4jQueueFilter log4j = new Log4jQueueFilter(config, queueManager);
+        assertEquals(Filter.Result.NEUTRAL,
+                log4j.filter(null, org.apache.logging.log4j.Level.ERROR, null, (Object) queueText, null));
+        assertEquals(Filter.Result.NEUTRAL,
+                log4j.filter(null, org.apache.logging.log4j.Level.INFO, null, (Object) queueText,
+                        new IllegalStateException("boom")));
+    }
+
+    @Test
     @DisplayName("Config Test: Thông báo kick-in-queue mặc định không còn dòng 'Thời gian giữ vị trí' và 'Ước tính chờ'")
     public void testDefaultConfigMessageDoesNotContainRemovedLines() {
         java.io.InputStream is = getClass().getClassLoader().getResourceAsStream("config.yml");

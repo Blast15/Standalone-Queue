@@ -75,9 +75,9 @@ public class QueueConfigTest {
         QueueConfig config = new QueueConfig(YamlConfiguration.loadConfiguration(new StringReader(yaml)));
 
         assertEquals(-1, config.getMaxPlayersOverride());
-        assertEquals(0L, config.getKeepAliveSeconds());
-        assertEquals(0L, config.getSlotReservationSeconds());
-        assertEquals(0L, config.getMaxQueueSize());
+        assertEquals(300L, config.getKeepAliveSeconds());
+        assertEquals(60L, config.getSlotReservationSeconds());
+        assertEquals(500, config.getMaxQueueSize());
         assertEquals(Long.MAX_VALUE, config.getRateLimitMs());
     }
 

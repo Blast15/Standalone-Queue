@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.StringReader;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -245,6 +247,114 @@ public class QueueManagerTest {
         executor.shutdown();
 
         assertEquals(threads, successfulDecisions.get(), "Toàn bộ 50 luồng đồng thời phải được xử lý an toàn không gặp exception");
+        assertEquals(3, queueManager.getInFlightCount(), "Admission must never exceed configured capacity");
+        assertEquals(47, queueManager.getQueueSize());
+    }
+
+    @Test
+    @DisplayName("Capacity: concurrent attempts for the same UUID create only one in-flight login")
+    public void testDuplicateUuidCannotDoubleAdmit() throws InterruptedException {
+        config.load(YamlConfiguration.loadConfiguration(new StringReader("""
+            queue:
+              max-players-override: 3
+              rate-limit-seconds: 0
+              max-queue-size: 100
+            """)));
+        UUID uuid = UUID.randomUUID();
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+        List<QueueManager.LoginResultType> results = java.util.Collections.synchronizedList(new ArrayList<>());
+        for (int i = 0; i < 2; i++) {
+            executor.submit(() -> {
+                try {
+                    start.await();
+                    results.add(queueManager.handlePreLogin(uuid, "SamePlayer", "127.0.0.1").type());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+        }
+        start.countDown();
+        executor.shutdown();
+        assertTrue(executor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS));
+        assertEquals(1, results.stream().filter(type -> type == QueueManager.LoginResultType.ALLOWED_DIRECT).count());
+        assertEquals(1, queueManager.getInFlightCount());
+    }
+
+    @Test
+    @DisplayName("Reservation: an expired holder moves behind the next player")
+    public void testExpiredReservationAdvancesQueue() throws InterruptedException {
+        config.load(YamlConfiguration.loadConfiguration(new StringReader("""
+            queue:
+              max-players-override: 1
+              keep-alive-seconds: 30
+              slot-reservation-seconds: 1
+              rate-limit-seconds: 0
+              max-queue-size: 10
+            """)));
+        UUID occupant = UUID.randomUUID();
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        queueManager.handlePreLogin(occupant, "Occupant", "127.0.0.1");
+        queueManager.handlePreLogin(first, "First", "127.0.0.2");
+        queueManager.handlePreLogin(second, "Second", "127.0.0.3");
+        queueManager.releaseInFlight(occupant);
+        queueManager.cleanupTick();
+        assertEquals(first, queueManager.getQueueList().get(0).getUuid());
+        assertTrue(queueManager.getQueueList().get(0).hasActiveReservation());
+
+        Thread.sleep(1100L);
+        queueManager.cleanupTick();
+        assertEquals(second, queueManager.getQueueList().get(0).getUuid());
+        assertTrue(queueManager.getQueueList().get(0).hasActiveReservation());
+    }
+
+    @Test
+    @DisplayName("Anti-abuse: random UUID tracking remains bounded")
+    public void testRandomUuidTrackingIsBounded() {
+        config.load(YamlConfiguration.loadConfiguration(new StringReader("""
+            queue:
+              max-players-override: 1
+              rate-limit-seconds: 0
+              max-queue-size: 10
+              anti-bot:
+                enabled: false
+            """)));
+        for (int i = 0; i < 10_000; i++) {
+            queueManager.handlePreLogin(UUID.randomUUID(), "Bot" + i, "192.0.2.1");
+        }
+        assertTrue(queueManager.getTrackedRateLimitCount() <= 4096);
+        assertTrue(queueManager.getQueueSize() <= 10);
+    }
+
+    @Test
+    @DisplayName("Reservation count is reconciled when capacity shrinks")
+    public void testCapacityShrinkRevokesExcessReservations() {
+        for (int i = 0; i < 3; i++) {
+            queueManager.handlePreLogin(UUID.randomUUID(), "Online" + i, "127.0.0.1");
+        }
+        queueManager.handlePreLogin(UUID.randomUUID(), "First", "127.0.0.2");
+        queueManager.handlePreLogin(UUID.randomUUID(), "Second", "127.0.0.3");
+
+        config.load(YamlConfiguration.loadConfiguration(new StringReader("""
+            queue:
+              max-players-override: 5
+              slot-reservation-seconds: 60
+              rate-limit-seconds: 0
+              max-queue-size: 100
+            """)));
+        queueManager.cleanupTick();
+        assertEquals(2, queueManager.getReservedSlotCount());
+
+        config.load(YamlConfiguration.loadConfiguration(new StringReader("""
+            queue:
+              max-players-override: 3
+              slot-reservation-seconds: 60
+              rate-limit-seconds: 0
+              max-queue-size: 100
+            """)));
+        queueManager.cleanupTick();
+        assertEquals(0, queueManager.getReservedSlotCount());
     }
 
     private org.bukkit.entity.Player createMockPlayer(UUID uuid, boolean hasBypass) {

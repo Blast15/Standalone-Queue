@@ -2,10 +2,11 @@ package com.mineplugin.queue.logging;
 
 import com.mineplugin.queue.config.QueueConfig;
 import com.mineplugin.queue.manager.QueueManager;
-import org.bukkit.Bukkit;
-
 import java.util.logging.Handler;
+import java.util.logging.Filter;
 import java.util.logging.Logger;
+import java.util.IdentityHashMap;
+import java.util.Map;
 
 /**
  * Quản lý bộ lọc log console (Log4j2 + Java Util Logging).
@@ -19,6 +20,11 @@ public class ConsoleFilterManager {
 
     private Log4jQueueFilter log4jFilter;
     private JulQueueFilter julFilter;
+    private Logger rootJul;
+    private Filter originalRootFilter;
+    private Filter installedRootFilter;
+    private final Map<Handler, Filter> originalHandlerFilters = new IdentityHashMap<>();
+    private final Map<Handler, Filter> installedHandlerFilters = new IdentityHashMap<>();
 
     public ConsoleFilterManager(QueueConfig config, QueueManager queueManager) {
         this.config = config;
@@ -43,16 +49,19 @@ public class ConsoleFilterManager {
         try {
             this.julFilter = new JulQueueFilter(config, queueManager);
 
-            Logger rootJul = Logger.getLogger("");
-            rootJul.setFilter(julFilter);
+            rootJul = Logger.getLogger("");
+            originalRootFilter = rootJul.getFilter();
+            installedRootFilter = combine(originalRootFilter, julFilter);
+            rootJul.setFilter(installedRootFilter);
             for (Handler handler : rootJul.getHandlers()) {
-                handler.setFilter(julFilter);
+                Filter original = handler.getFilter();
+                Filter installed = combine(original, julFilter);
+                originalHandlerFilters.put(handler, original);
+                installedHandlerFilters.put(handler, installed);
+                handler.setFilter(installed);
             }
-
-            if (Bukkit.getServer() != null) {
-                Bukkit.getLogger().setFilter(julFilter);
-            }
-        } catch (Throwable ignored) {
+        } catch (RuntimeException ignored) {
+            // Console filtering is optional; a hostile/custom JUL manager must not disable the plugin.
         }
     }
 
@@ -70,7 +79,23 @@ public class ConsoleFilterManager {
                 }
             }
         } catch (Throwable ignored) {
+            // Log4j may be absent or shutting down; filter cleanup is best-effort during disable.
         }
+        if (rootJul != null && rootJul.getFilter() == installedRootFilter) {
+            rootJul.setFilter(originalRootFilter);
+        }
+        for (Map.Entry<Handler, Filter> entry : installedHandlerFilters.entrySet()) {
+            Handler handler = entry.getKey();
+            if (handler.getFilter() == entry.getValue()) {
+                handler.setFilter(originalHandlerFilters.get(handler));
+            }
+        }
+        originalHandlerFilters.clear();
+        installedHandlerFilters.clear();
+    }
+
+    private static Filter combine(Filter existing, Filter queueFilter) {
+        return record -> (existing == null || existing.isLoggable(record)) && queueFilter.isLoggable(record);
     }
 
     /**

@@ -3,7 +3,6 @@ package com.mineplugin.queue.listener;
 import com.mineplugin.queue.config.QueueConfig;
 import com.mineplugin.queue.manager.QueueManager;
 import net.kyori.adventure.text.Component;
-import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -60,7 +59,7 @@ public class PreLoginListener implements Listener {
                         Component msg = config.formatKickSlotReady();
                         event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_FULL, msg);
                     } else {
-                        int online = Bukkit.getOnlinePlayers().size();
+                        int online = queueManager.getOnlinePlayerCount();
                         int maxCap = queueManager.getEffectiveMaxPlayers();
                         Component msg = config.formatKickInQueue(decision.position(), online, maxCap);
                         event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_FULL, msg);

@@ -2,7 +2,7 @@
 
 ## Development setup
 
-- JDK 25
+- JDK 21
 - Paper API 1.21+
 - Maven 3.9+ (the CI build uses `mvn -B clean package`)
 
