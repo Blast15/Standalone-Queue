@@ -27,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.*;
 public class QueueManagerTest {
 
     private QueueConfig config;
+    private MutableClock clock;
+    private FakePermissionResolver permissions;
     private QueueManager queueManager;
 
     @BeforeEach
@@ -52,7 +54,9 @@ public class QueueManagerTest {
             """;
         YamlConfiguration yamlConfig = YamlConfiguration.loadConfiguration(new StringReader(yaml));
         config = new QueueConfig(yamlConfig);
-        queueManager = new QueueManager(null, config);
+        clock = new MutableClock();
+        permissions = new FakePermissionResolver(clock);
+        queueManager = new QueueManager(null, config, permissions, clock);
     }
 
     @Test
@@ -112,7 +116,7 @@ public class QueueManagerTest {
         config.load(YamlConfiguration.loadConfiguration(new StringReader(shortTimeoutYaml)));
 
         // Đợi 1.1s để timeout kích hoạt
-        Thread.sleep(1100);
+        clock.advance(1100);
 
         // Chạy cleanup tick
         queueManager.cleanupTick();
@@ -174,17 +178,12 @@ public class QueueManagerTest {
         UUID normalUser = UUID.randomUUID();
         queueManager.handlePreLogin(normalUser, "NormalUser", "127.0.0.1");
 
-        // Thêm VIP user (giả lập quyền VIP có priority = 10)
         UUID vipUser = UUID.randomUUID();
-        QueuedPlayer vipPlayer = new QueuedPlayer(vipUser, "VipUser", "127.0.0.1", 10);
-
-        // Cho VIP vào hàng chờ
-        queueManager.getQueueList(); // Ensure initialized
-        // Sử dụng reflection hoặc add trực tiếp qua priority cache
-        // QueueManager ưu tiên tính theo compareTo
-        QueuedPlayer normalPlayer = queueManager.getQueueList().get(0);
-
-        assertTrue(vipPlayer.compareTo(normalPlayer) < 0, "VIP (prio 10) phải đứng trước người thường (prio 0)");
+        permissions.set(vipUser, false, 10);
+        QueueManager.LoginDecision vipDecision = queueManager.handlePreLogin(vipUser, "VipUser", "127.0.0.1");
+        assertEquals(1, vipDecision.position().position());
+        assertEquals(10, vipDecision.position().priority());
+        assertEquals(vipUser, queueManager.getQueueList().getFirst().getUuid());
     }
 
     @Test
@@ -212,9 +211,8 @@ public class QueueManagerTest {
 
         // Admin có quyền bypass
         UUID adminUuid = UUID.randomUUID();
-        // Giả lập quyền bypass
-        // QueueManager kiểm tra permissionCache
-        queueManager.cachePlayerPermissions(createMockPlayer(adminUuid, true));
+        // Quyền được resolve trước admission, kể cả UUID chưa từng join.
+        permissions.set(adminUuid, true, 0);
 
         QueueManager.LoginDecision decision = queueManager.handlePreLogin(adminUuid, "Admin", "127.0.0.1");
         assertEquals(QueueManager.LoginResultType.ALLOWED_BYPASS, decision.type(), "Admin có quyền bypass phải vào được ngay");
@@ -303,7 +301,7 @@ public class QueueManagerTest {
         assertEquals(first, queueManager.getQueueList().get(0).getUuid());
         assertTrue(queueManager.getQueueList().get(0).hasActiveReservation());
 
-        Thread.sleep(1100L);
+        clock.advance(1100L);
         queueManager.cleanupTick();
         assertEquals(second, queueManager.getQueueList().get(0).getUuid());
         assertTrue(queueManager.getQueueList().get(0).hasActiveReservation());
@@ -357,24 +355,4 @@ public class QueueManagerTest {
         assertEquals(0, queueManager.getReservedSlotCount());
     }
 
-    private org.bukkit.entity.Player createMockPlayer(UUID uuid, boolean hasBypass) {
-        // Simple dynamic proxy for Bukkit Player interface to mock permissions
-        return (org.bukkit.entity.Player) java.lang.reflect.Proxy.newProxyInstance(
-                getClass().getClassLoader(),
-                new Class<?>[]{org.bukkit.entity.Player.class},
-                (proxy, method, args) -> {
-                    if ("getUniqueId".equals(method.getName())) {
-                        return uuid;
-                    }
-                    if ("hasPermission".equals(method.getName()) && args.length > 0) {
-                        String perm = (String) args[0];
-                        if ("queue.bypass".equals(perm)) {
-                            return hasBypass;
-                        }
-                        return Boolean.FALSE;
-                    }
-                    return null;
-                }
-        );
-    }
 }

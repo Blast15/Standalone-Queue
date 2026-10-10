@@ -38,6 +38,13 @@ queue:
   # Tự động gửi thông báo trên console khi có người vào/rời hàng chờ hoặc được cấp slot.
   debug-log: false
 
+# Quyền pre-login: online-mode=true; LuckPerms là tích hợp tùy chọn.
+# Không có LuckPerms: chỉ hỗ trợ OP từ snapshot main thread (TTL tối đa 2 giây).
+# Offline-mode: không cấp bypass/priority dựa trên username hoặc offline UUID.
+permissions:
+  # Giới hạn chờ resolver, mili-giây (1..5000). Lỗi/timeout: quyền thường.
+  resolve-timeout-ms: 1000
+
 # Hệ thống quyền ưu tiên (Priority Weights)
 # Càng cao càng được xếp trước. Quyền hạn có định dạng: queue.priority.<name>
 # Mặc định người chơi không có quyền gì sẽ có priority: 0

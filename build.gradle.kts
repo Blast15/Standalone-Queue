@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "com.mineplugin"
-version = "1.0.1"
+version = "1.0.2-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -12,6 +12,7 @@ repositories {
 }
 
 dependencies {
+    compileOnly("net.luckperms:api:5.4")
     compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

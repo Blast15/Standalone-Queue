@@ -7,7 +7,7 @@
 Plugin hàng chờ độc lập cho máy chủ Minecraft Paper, **hoàn toàn không cần máy chủ trung gian (Proxy / BungeeCord / Velocity)**.
 
 **Author:** BlastSama  
-**Version:** 1.0.1
+**Version:** 1.0.2-SNAPSHOT (ứng viên giai đoạn 1, chưa phát hành)
 **Supported API:** Paper 1.21+
 
 StandaloneQueue keeps a full Paper server usable without a proxy: players receive a fair, priority-aware queue while administrators get bounded admission controls for join-bot bursts.
@@ -18,6 +18,9 @@ StandaloneQueue keeps a full Paper server usable without a proxy: players receiv
 - [Queue and anti-joinbot configuration](docs/wiki/Configuration.md)
 - [Operations runbook](docs/wiki/Operations.md)
 - [Security model and limitations](docs/wiki/Security.md)
+- [Behavior contract](docs/architecture/queue-invariants.md)
+- [Phase 1 migration and staging](docs/releases/1.0.2.md)
+- [Changelog](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md)
 
 ---
@@ -47,6 +50,9 @@ StandaloneQueue keeps a full Paper server usable without a proxy: players receiv
 6. **Hệ Thống Phân Hạng Ưu Tiên (Priority & Bypass)**:
    - Quyền `queue.bypass`: Bỏ qua hàng chờ, vào thẳng ngay cả khi đầy.
    - Quyền `queue.priority.vip`, `queue.priority.mvp`: Được xếp trước người chơi thông thường.
+   - Với `online-mode=true`, LuckPerms được truy vấn theo UUID trước admission; không cần từng join trước đó.
+   - Không cài LuckPerms: chỉ OP được hỗ trợ tại pre-login, snapshot hết hạn sau tối đa 2 giây.
+   - Với `online-mode=false`, không cấp bypass/priority từ username hoặc offline UUID. Plugin quyền khác và quyền theo world chưa được hỗ trợ tại pre-login.
 6. **Giao Diện MiniMessage Hiện Đại**:
    - Hỗ trợ màu Gradient, Hex, Bold, Tag MiniMessage trên màn hình ngắt kết nối.
 
@@ -77,15 +83,11 @@ StandaloneQueue keeps a full Paper server usable without a proxy: players receiv
 
 ### Biên dịch với Maven:
 ```bash
-mvn clean package
+mvn -B clean verify
 ```
-File JAR sẽ nằm tại `target/StandaloneQueue-1.0.1.jar`.
+File JAR sẽ nằm tại `target/StandaloneQueue-1.0.2-SNAPSHOT.jar`.
 
-### Biên dịch với Gradle:
-```bash
-gradle build
-```
-File JAR sẽ nằm tại `build/libs/StandaloneQueue-1.0.1.jar`.
+Maven là build nguồn chuẩn và là gate của CI. `build.gradle.kts` được giữ để tham khảo cho IDE; Gradle chưa là đường build được kiểm chứng hoặc hỗ trợ phát hành.
 
 ---
 

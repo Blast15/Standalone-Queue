@@ -32,6 +32,7 @@ public class QueueConfig {
     private int antiBotMaxQueuedPerIp;
     private int antiBotGlobalAttemptsPerWindow;
     private Boolean antiBotRuntimeOverride;
+    private long permissionResolveTimeoutMs;
 
     private final Map<String, Integer> permissionPriorities = new HashMap<>();
 
@@ -59,6 +60,7 @@ public class QueueConfig {
         this.rateLimitSeconds = Math.max(0L, config.getLong("queue.rate-limit-seconds", 2L));
         this.maxQueueSize = positiveOrDefault(config.getInt("queue.max-queue-size", 500), 500);
         this.debugLog = config.getBoolean("queue.debug-log", false);
+        this.permissionResolveTimeoutMs = Math.clamp(config.getLong("permissions.resolve-timeout-ms", 1000L), 1L, 5000L);
         this.antiBotEnabled = config.getBoolean("queue.anti-bot.enabled", false);
         this.antiBotWindowSeconds = Math.max(1L, config.getLong("queue.anti-bot.window-seconds", 10L));
         this.antiBotMaxAttemptsPerIp = positiveOrDefault(config.getInt("queue.anti-bot.max-attempts-per-ip", 20), 20);
@@ -98,6 +100,10 @@ public class QueueConfig {
 
     public synchronized boolean isEnabled() {
         return enabled;
+    }
+
+    public synchronized long getPermissionResolveTimeoutMs() {
+        return permissionResolveTimeoutMs;
     }
 
     public synchronized int getMaxPlayersOverride() {

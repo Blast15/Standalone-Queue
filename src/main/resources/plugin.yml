@@ -1,5 +1,6 @@
 name: StandaloneQueue
-version: 1.0.1
+version: 1.0.2-SNAPSHOT
+softdepend: [LuckPerms]
 main: com.mineplugin.queue.StandaloneQueuePlugin
 api-version: '1.21'
 author: BlastSama
