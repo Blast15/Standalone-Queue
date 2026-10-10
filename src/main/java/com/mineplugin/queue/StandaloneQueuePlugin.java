@@ -5,10 +5,16 @@ import com.mineplugin.queue.config.QueueConfig;
 import com.mineplugin.queue.listener.PlayerConnectionListener;
 import com.mineplugin.queue.listener.PreLoginListener;
 import com.mineplugin.queue.manager.QueueManager;
+import com.mineplugin.queue.permission.LuckPermsPermissionResolver;
+import com.mineplugin.queue.permission.OperatorPermissionResolver;
+import com.mineplugin.queue.permission.PermissionResolver;
 import com.mineplugin.queue.task.QueueCleanupTask;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.time.Clock;
+import java.util.stream.Collectors;
 
 /**
  * Main class cho StandaloneQueue Plugin.
@@ -27,8 +33,23 @@ public final class StandaloneQueuePlugin extends JavaPlugin {
         saveDefaultConfig();
         this.queueConfig = new QueueConfig(getConfig());
 
-        this.queueManager = new QueueManager(this, queueConfig);
+        Clock clock = Clock.systemUTC();
+        OperatorPermissionResolver operators = new OperatorPermissionResolver(clock);
+        Runnable refreshOperators = () -> operators.refresh(getServer().getOperators().stream()
+                .map(org.bukkit.OfflinePlayer::getUniqueId).collect(Collectors.toUnmodifiableSet()),
+                getServer().getOnlineMode());
+        refreshOperators.run();
+        PermissionResolver permissions = operators;
+        if (getServer().getPluginManager().isPluginEnabled("LuckPerms")) {
+            permissions = new LuckPermsPermissionResolver(net.luckperms.api.LuckPermsProvider.get(),
+                    queueConfig, operators, clock);
+        }
+        this.queueManager = new QueueManager(this, queueConfig, permissions, clock);
         this.queueManager.refreshServerCapacity();
+        getServer().getScheduler().runTaskTimer(this, () -> {
+            refreshOperators.run();
+            queueManager.refreshServerCapacity();
+        }, 20L, 20L);
 
         this.consoleFilterManager = new com.mineplugin.queue.logging.ConsoleFilterManager(queueConfig, queueManager);
         this.consoleFilterManager.register();

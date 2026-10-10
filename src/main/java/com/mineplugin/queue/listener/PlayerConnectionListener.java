@@ -32,11 +32,6 @@ public class PlayerConnectionListener implements Listener {
         Player player = event.getPlayer();
 
         if (event.getResult() == PlayerLoginEvent.Result.KICK_FULL) {
-            if (player.hasPermission("queue.bypass") || queueManager.hasBypassPermission(player.getUniqueId())) {
-                event.allow();
-                return;
-            }
-
             // Nếu người chơi đang trong quá trình handshake đã được duyệt qua PreLogin
             if (queueManager.isInFlight(player.getUniqueId())) {
                 event.allow();

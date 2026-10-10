@@ -24,7 +24,6 @@ public class QueuedPlayerModelTest {
         UUID u3 = UUID.randomUUID();
 
         QueuedPlayer playerNormal1 = new QueuedPlayer(u1, "Normal1", "127.0.0.1", 0);
-        Thread.sleep(2);
         QueuedPlayer playerNormal2 = new QueuedPlayer(u2, "Normal2", "127.0.0.1", 0);
         QueuedPlayer playerVip = new QueuedPlayer(u3, "VIPUser", "127.0.0.1", 10);
 
@@ -47,7 +46,8 @@ public class QueuedPlayerModelTest {
     @DisplayName("Model Test 2: Quản lý Slot Reservation và thời hạn hết hạn")
     public void testSlotReservation() throws InterruptedException {
         UUID u = UUID.randomUUID();
-        QueuedPlayer player = new QueuedPlayer(u, "TestUser", "127.0.0.1", 0);
+        MutableClock clock = new MutableClock();
+        QueuedPlayer player = new QueuedPlayer(u, "TestUser", "127.0.0.1", 0, clock);
 
         assertFalse(player.hasActiveReservation());
         assertFalse(player.isReservationExpired());
@@ -57,7 +57,7 @@ public class QueuedPlayerModelTest {
         assertTrue(player.hasActiveReservation());
         assertFalse(player.isReservationExpired());
 
-        Thread.sleep(150);
+        clock.advance(150);
         assertFalse(player.hasActiveReservation(), "Sau 150ms thì reservation không còn active");
         assertTrue(player.isReservationExpired(), "Sau 150ms thì reservation đã hết hạn");
 
@@ -71,14 +71,15 @@ public class QueuedPlayerModelTest {
     @DisplayName("Model Test 3: Quản lý Keep-Alive Heartbeat và gia hạn ping")
     public void testKeepAliveHeartbeat() throws InterruptedException {
         UUID u = UUID.randomUUID();
-        QueuedPlayer player = new QueuedPlayer(u, "TestUser", "127.0.0.1", 0);
+        MutableClock clock = new MutableClock();
+        QueuedPlayer player = new QueuedPlayer(u, "TestUser", "127.0.0.1", 0, clock);
 
         // Chưa hết hạn
         assertFalse(player.isKeepAliveExpired(1000L));
         assertTrue(player.getRemainingKeepAliveMs(1000L) > 800L);
 
         // Đợi 150ms
-        Thread.sleep(150);
+        clock.advance(150);
         assertTrue(player.isKeepAliveExpired(100L));
 
         // Người chơi ping lại (recordPing) -> reset heartbeat
