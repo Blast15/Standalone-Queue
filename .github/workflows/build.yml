@@ -42,7 +42,27 @@ jobs:
           cache: maven
 
       - name: Build with Maven
-        run: mvn -B clean verify --file pom.xml
+        run: mvn -B clean install --file pom.xml
+
+      - name: Build Paper staging probe
+        run: mvn -B clean verify --file staging-probe/pom.xml
+
+      - name: Upload Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: StandaloneQueue-Test-Reports
+          path: |
+            target/surefire-reports/
+            target/failsafe-reports/
+          if-no-files-found: ignore
+
+      - name: Upload Staging Probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: StandaloneQueue-StagingProbe
+          path: staging-probe/target/StandaloneQueue-StagingProbe-*.jar
+          if-no-files-found: error
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4

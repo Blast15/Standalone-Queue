@@ -31,10 +31,11 @@ public final class OperatorPermissionResolver implements PermissionResolver {
     public CompletableFuture<PermissionSnapshot> resolve(UUID uuid, String name) {
         State current = state;
         long now = clock.millis();
-        boolean fresh = current.authenticated && now >= current.sampledAt
+        boolean fresh = now >= current.sampledAt
                 && now - current.sampledAt < PermissionSnapshot.MAX_AGE_MS;
         return CompletableFuture.completedFuture(fresh
-                ? new PermissionSnapshot(current.operators.contains(uuid), 0, current.sampledAt, "bukkit-operators")
+                ? new PermissionSnapshot(current.authenticated && current.operators.contains(uuid), 0,
+                        current.sampledAt, current.authenticated ? "bukkit-operators" : "offline-mode")
                 : PermissionSnapshot.none(now));
     }
 }

@@ -296,7 +296,7 @@ public class QueueManagerTest {
         queueManager.handlePreLogin(occupant, "Occupant", "127.0.0.1");
         queueManager.handlePreLogin(first, "First", "127.0.0.2");
         queueManager.handlePreLogin(second, "Second", "127.0.0.3");
-        queueManager.releaseInFlight(occupant);
+        queueManager.releaseInFlight(occupant, queueManager.getAttemptId(occupant));
         queueManager.cleanupTick();
         assertEquals(first, queueManager.getQueueList().get(0).getUuid());
         assertTrue(queueManager.getQueueList().get(0).hasActiveReservation());

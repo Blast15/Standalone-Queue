@@ -1,0 +1,14 @@
+name: SQStagingProbe
+version: ${project.version}
+main: com.mineplugin.queue.staging.StagingProbePlugin
+api-version: '1.21'
+depend: [StandaloneQueue]
+description: Controlled login delays/rejections and event trace for an isolated staging server
+commands:
+  sqprobe:
+    description: Arm one staging login fixture or reset it
+    permission: sqprobe.admin
+    usage: /sqprobe <delay|deny-pre|deny-login|reset> [player] [milliseconds]
+permissions:
+  sqprobe.admin:
+    default: op

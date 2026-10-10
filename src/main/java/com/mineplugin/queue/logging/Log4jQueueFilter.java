@@ -8,14 +8,11 @@ import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.core.filter.AbstractFilter;
 import org.apache.logging.log4j.message.Message;
+import org.apache.logging.log4j.message.ParameterizedMessage;
+import java.util.Arrays;
 
-/**
- * Bộ lọc Log4j2 cho server Paper / Minecraft console.
- *
- * @author BlastSama
- */
+/** Log4j suppression uses both trusted logger identity and an exact recent plugin disconnect. */
 public class Log4jQueueFilter extends AbstractFilter {
-
     private final QueueConfig config;
     private final QueueManager queueManager;
 
@@ -24,56 +21,36 @@ public class Log4jQueueFilter extends AbstractFilter {
         this.queueManager = queueManager;
     }
 
-    private boolean shouldFilter(String msg) {
-        return ConsoleFilterManager.isQueueMessage(msg, config, queueManager);
+    private Result decide(String loggerName, Level level, Message message, Throwable thrown) {
+        if (!ConsoleFilterManager.acceptsSource(loggerName, config)) return Result.NEUTRAL;
+        if (level == null || level.isMoreSpecificThan(Level.WARN) || thrown != null || message == null
+                || message.getThrowable() != null) return Result.NEUTRAL;
+        Object[] parameters = message.getParameters();
+        if (parameters != null && Arrays.stream(parameters).anyMatch(Throwable.class::isInstance)) return Result.NEUTRAL;
+        return ConsoleFilterManager.isQueueMessage(loggerName, message.getFormattedMessage(), config, queueManager)
+                ? Result.DENY : Result.NEUTRAL;
     }
 
-    @Override
-    public Result filter(LogEvent event) {
-        if (event == null || (config != null && config.isDebugLog())) {
-            return Result.NEUTRAL;
-        }
-        if (event.getThrown() != null || event.getLevel().isMoreSpecificThan(Level.WARN)) {
-            return Result.NEUTRAL;
-        }
-        String msg = event.getMessage() != null ? event.getMessage().getFormattedMessage() : null;
-        if (shouldFilter(msg)) {
-            return Result.DENY;
-        }
-        return Result.NEUTRAL;
+    @Override public Result filter(LogEvent event) {
+        return event == null ? Result.NEUTRAL : decide(event.getLoggerName(), event.getLevel(), event.getMessage(), event.getThrown());
     }
 
-    @Override
-    public Result filter(Logger logger, Level level, Marker marker, Message msg, Throwable t) {
-        if (t != null || (level != null && level.isMoreSpecificThan(Level.WARN))) return Result.NEUTRAL;
-        if (msg != null && shouldFilter(msg.getFormattedMessage())) {
-            return Result.DENY;
-        }
-        return Result.NEUTRAL;
+    @Override public Result filter(Logger logger, Level level, Marker marker, Message message, Throwable thrown) {
+        return decide(logger == null ? null : logger.getName(), level, message, thrown);
     }
 
-    @Override
-    public Result filter(Logger logger, Level level, Marker marker, Object msg, Throwable t) {
-        if (t != null || (level != null && level.isMoreSpecificThan(Level.WARN))) return Result.NEUTRAL;
-        if (msg != null && shouldFilter(msg.toString())) {
-            return Result.DENY;
-        }
-        return Result.NEUTRAL;
+    @Override public Result filter(Logger logger, Level level, Marker marker, Object message, Throwable thrown) {
+        if (level == null || level.isMoreSpecificThan(Level.WARN) || thrown != null
+                || !ConsoleFilterManager.acceptsSource(logger == null ? null : logger.getName(), config)) return Result.NEUTRAL;
+        if (message instanceof Throwable) return Result.NEUTRAL;
+        Message value = message instanceof Message typed ? typed : new org.apache.logging.log4j.message.SimpleMessage(String.valueOf(message));
+        return decide(logger == null ? null : logger.getName(), level, value, thrown);
     }
 
-    @Override
-    public Result filter(Logger logger, Level level, Marker marker, String msg, Object... params) {
-        if (level != null && level.isMoreSpecificThan(Level.WARN)) return Result.NEUTRAL;
-        if (shouldFilter(msg)) {
-            return Result.DENY;
-        }
-        if (params != null && config != null && !config.isDebugLog()) {
-            for (Object p : params) {
-                if (p != null && shouldFilter(p.toString())) {
-                    return Result.DENY;
-                }
-            }
-        }
-        return Result.NEUTRAL;
+    @Override public Result filter(Logger logger, Level level, Marker marker, String message, Object... params) {
+        if (level == null || level.isMoreSpecificThan(Level.WARN)
+                || !ConsoleFilterManager.acceptsSource(logger == null ? null : logger.getName(), config)) return Result.NEUTRAL;
+        if (params != null && Arrays.stream(params).anyMatch(Throwable.class::isInstance)) return Result.NEUTRAL;
+        return decide(logger == null ? null : logger.getName(), level, new ParameterizedMessage(message, params), null);
     }
 }

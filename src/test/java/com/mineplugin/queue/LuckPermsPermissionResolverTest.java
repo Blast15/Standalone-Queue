@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class LuckPermsPermissionResolverTest {
     @SuppressWarnings("unchecked")
-    private static <T> T stub(Class<T> type, BiFunction<String, Object[], Object> call) {
+    static <T> T stub(Class<T> type, BiFunction<String, Object[], Object> call) {
         return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
                 (proxy, method, args) -> call.apply(method.getName(), args));
     }
@@ -75,8 +75,11 @@ class LuckPermsPermissionResolverTest {
         assertFalse(resolver.resolve(uuid, "AnyName").join().bypass());
         bypass.set(Tristate.UNDEFINED);
         assertTrue(resolver.resolve(uuid, "AnyName").join().bypass());
-        assertEquals(3, loads.get());
-        assertEquals(3, cleanups.get());
+        var candidate = resolver.resolve(uuid, "AnyName", java.util.Map.of("queue.priority.vip", 70)).join();
+        assertEquals(70, candidate.priorityWeight());
+        assertEquals(20, resolver.resolve(uuid, "AnyName").join().priorityWeight());
+        assertEquals(5, loads.get());
+        assertEquals(5, cleanups.get());
     }
 
     @Test

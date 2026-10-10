@@ -5,7 +5,6 @@ import com.mineplugin.queue.config.QueueConfig;
 import com.mineplugin.queue.manager.QueueManager;
 import com.mineplugin.queue.model.QueuedPlayer;
 import net.kyori.adventure.text.Component;
-import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -15,6 +14,10 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
+import java.util.function.Consumer;
 
 /**
  * Xử lý lệnh quản trị hàng chờ (/queue hoặc /sq, /hangcho).
@@ -26,11 +29,22 @@ public class QueueCommand implements CommandExecutor, TabCompleter {
     private final StandaloneQueuePlugin plugin;
     private final QueueManager queueManager;
     private final QueueConfig config;
+    private final Supplier<CompletableFuture<Void>> reloadAction;
+    private final Consumer<Runnable> dispatch;
 
     public QueueCommand(StandaloneQueuePlugin plugin, QueueManager queueManager, QueueConfig config) {
+        this(plugin, queueManager, config,
+                () -> plugin.reloadQueueConfiguration(),
+                action -> { if (plugin.isEnabled()) plugin.getServer().getScheduler().runTask(plugin, action); });
+    }
+
+    public QueueCommand(StandaloneQueuePlugin plugin, QueueManager queueManager, QueueConfig config,
+                        Supplier<CompletableFuture<Void>> reloadAction, Consumer<Runnable> dispatch) {
         this.plugin = plugin;
         this.queueManager = queueManager;
         this.config = config;
+        this.reloadAction = reloadAction;
+        this.dispatch = dispatch;
     }
 
     @Override
@@ -45,17 +59,25 @@ public class QueueCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        String sub = args[0].toLowerCase();
+        String sub = args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
             case "reload" -> {
-                plugin.reloadConfig();
-                config.load(plugin.getConfig());
-                config.clearRuntimeOverrides();
-                sender.sendMessage(config.getAdminMessage("reloaded"));
+                sender.sendMessage(config.getAdminMessage("reloading"));
+                reloadAction.get().whenComplete((ignored, error) -> dispatch.accept(() -> {
+                    if (error == null) sender.sendMessage(config.getAdminMessage("reloaded"));
+                    else {
+                        Throwable cause = error;
+                        while (cause.getCause() != null) cause = cause.getCause();
+                        String reason = String.valueOf(cause.getMessage());
+                        if (plugin != null) plugin.getLogger().warning("Queue reload rejected: " + reason);
+                        sender.sendMessage(config.getAdminMessage("reload-failed", "<reason>",
+                                net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().escapeTags(reason)));
+                    }
+                }));
             }
             case "antibot", "anti-bot" -> handleAntiBot(sender, label, args);
             case "status" -> {
-                int online = Bukkit.getServer() != null ? Bukkit.getOnlinePlayers().size() : 0;
+                int online = queueManager.getOnlinePlayerCount();
                 int maxCap = queueManager.getEffectiveMaxPlayers();
                 int override = config.getMaxPlayersOverride();
                 int queueSize = queueManager.getQueueSize();
@@ -69,6 +91,10 @@ public class QueueCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(config.getRawAdminMessage("status-line-queue",
                         "<queue_size>", String.valueOf(queueSize),
                         "<reserved_count>", String.valueOf(reserved)));
+                sender.sendMessage(config.getRawAdminMessage("status-line-in-flight",
+                        "<in_flight>", String.valueOf(queueManager.getInFlightCount()),
+                        "<timed_out>", String.valueOf(queueManager.getTimedOutInFlightCount()),
+                        "<timeout_count>", String.valueOf(queueManager.getInFlightTimeoutCount())));
             }
             case "list" -> {
                 List<QueuedPlayer> queueList = queueManager.getQueueList();

@@ -14,6 +14,9 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.time.Clock;
+import java.io.File;
+import java.util.concurrent.CompletableFuture;
+import com.mineplugin.queue.config.QueueSettings;
 import java.util.stream.Collectors;
 
 /**
@@ -56,7 +59,7 @@ public final class StandaloneQueuePlugin extends JavaPlugin {
 
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(new PreLoginListener(queueManager, queueConfig), this);
-        pm.registerEvents(new PlayerConnectionListener(queueManager), this);
+        pm.registerEvents(new PlayerConnectionListener(queueManager, queueConfig), this);
 
         PluginCommand queueCmd = getCommand("queue");
         if (queueCmd != null) {
@@ -104,5 +107,17 @@ public final class StandaloneQueuePlugin extends JavaPlugin {
 
     public QueueManager getQueueManager() {
         return queueManager;
+    }
+
+    public CompletableFuture<Void> reloadQueueConfiguration() {
+        File source = new File(getDataFolder(), "config.yml");
+        long request = queueManager.beginReloadRequest();
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return QueueSettings.read(source);
+            } catch (java.io.IOException | org.bukkit.configuration.InvalidConfigurationException error) {
+                throw new java.util.concurrent.CompletionException(error);
+            }
+        }).thenCompose(candidate -> queueManager.reload(candidate, request));
     }
 }

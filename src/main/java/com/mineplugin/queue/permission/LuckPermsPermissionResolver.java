@@ -6,6 +6,7 @@ import net.luckperms.api.util.Tristate;
 
 import java.time.Clock;
 import java.util.UUID;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
 
@@ -28,10 +29,15 @@ public final class LuckPermsPermissionResolver implements PermissionResolver {
 
     @Override
     public CompletableFuture<PermissionSnapshot> resolve(UUID uuid, String name) {
-        if (!operators.hasAuthenticatedIdentities() || !pending.tryAcquire()) {
+        return resolve(uuid, name, config.getPermissionPriorities());
+    }
+
+    @Override
+    public CompletableFuture<PermissionSnapshot> resolve(UUID uuid, String name, Map<String, Integer> priorities) {
+        if (!operators.hasAuthenticatedIdentities()) return operators.resolve(uuid, name);
+        if (!pending.tryAcquire()) {
             return CompletableFuture.completedFuture(PermissionSnapshot.none(clock.millis()));
         }
-        var priorities = config.getPermissionPriorities();
         try {
             // Never resolve identity by username. Static contexts are the only supported pre-login contexts.
             return api.getUserManager().loadUser(uuid).thenApplyAsync(user -> {

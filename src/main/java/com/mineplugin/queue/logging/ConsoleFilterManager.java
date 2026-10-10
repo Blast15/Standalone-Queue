@@ -98,62 +98,27 @@ public class ConsoleFilterManager {
         return record -> (existing == null || existing.isLoggable(record)) && queueFilter.isLoggable(record);
     }
 
-    /**
-     * Kiểm tra xem chuỗi log có phải là thông báo ngắt kết nối / hàng chờ cần ẩn hay không.
-     */
-    public static boolean isQueueMessage(String text, QueueConfig config, QueueManager queueManager) {
-        if (text == null || text.isEmpty()) {
-            return false;
-        }
+    private static final java.util.Set<String> DISCONNECT_LOGGERS = java.util.Set.of(
+            "net.minecraft.server.network.ServerLoginPacketListenerImpl",
+            "net.minecraft.server.network.ServerGamePacketListenerImpl",
+            "net.minecraft.server.network.ServerCommonPacketListenerImpl");
+    private static final java.util.regex.Pattern DISCONNECT = java.util.regex.Pattern.compile(
+            "^(?:Disconnecting ([A-Za-z0-9_]{1,16}) \\(/(.+):[0-9]+\\): |([A-Za-z0-9_]{1,16}) \\(/(.+):[0-9]+\\) lost connection: )(.*)$",
+            java.util.regex.Pattern.DOTALL);
 
-        if (config != null && config.isDebugLog()) {
-            return false;
-        }
+    static boolean acceptsSource(String loggerName, QueueConfig config) {
+        if (!DISCONNECT_LOGGERS.contains(loggerName == null ? "" : loggerName)) return false;
+        // Logging can be called while the queue lock is held. Never acquire the config monitor here.
+        return config != null && config.snapshot().suppressQueueNoise();
+    }
 
-        // 1. Kiểm tra các từ khóa nhận diện thông báo hàng chờ / kick queue
-        if (text.contains("MÁY CHỦ HIỆN ĐÃ ĐẦY")
-                || text.contains("MAY CHU HIEN DA DAY")
-                || text.contains("trong hàng chờ")
-                || text.contains("trong hang cho")
-                || text.contains("HÀNG CHỜ")
-                || text.contains("HANG CHO")
-                || text.contains("ĐÃ ĐẾN LƯỢT CỦA BẠN")
-                || text.contains("DA DEN LUOT CUA BAN")
-                || text.contains("KẾT NỐI QUÁ NHANH")
-                || text.contains("KET NOI QUA NHANH")
-                || text.contains("HÀNG CHỜ ĐÃ ĐẦY")
-                || text.contains("HANG CHO DA DAY")
-                || text.contains("LƯỢT CỦA BẠN ĐÃ BỊ HẾT HẠN")
-                || text.contains("LUOT CUA BAN DA BI HET HAN")
-                || text.contains("HÃY BẤM KẾT NỐI LẠI")
-                || text.contains("HAY BAM KET NOI LAI")
-                || text.contains("DUY TRÌ HÀNG CHỜ")
-                || text.contains("Trạng thái máy chủ:")
-                || text.contains("Trang thai may chu:")
-                || text.contains("Bạn đang trong hàng chờ.")
-                || text.contains("[Queue]")
-                || text.contains("vị trí: #")
-                || text.contains("vi tri: #")) {
-            return true;
-        }
-
-        // 2. Kiểm tra log UUID của người chơi đang trong hàng chờ
-        if (text.contains("UUID of player ") && queueManager != null) {
-            String[] parts = text.split("UUID of player ");
-            if (parts.length > 1) {
-                String remainder = parts[1].trim();
-                String playerName = remainder.split(" ")[0];
-                if (queueManager.isInQueue(playerName)) {
-                    return true;
-                }
-            }
-        }
-
-        // 3. Kiểm tra log Disconnecting / lost connection của người chơi trong hàng chờ
-        if ((text.contains("Disconnecting ") || text.contains("lost connection:")) && queueManager != null) {
-            return queueManager.containsAnyQueuedPlayerName(text);
-        }
-
-        return false;
+    /** Unknown sources/formats fail open. Names and text alone never identify queue noise. */
+    public static boolean isQueueMessage(String loggerName, String text, QueueConfig config, QueueManager manager) {
+        if (manager == null || text == null || !acceptsSource(loggerName, config)) return false;
+        var match = DISCONNECT.matcher(text);
+        if (!match.matches()) return false;
+        String name = match.group(1) != null ? match.group(1) : match.group(3);
+        String ip = match.group(2) != null ? match.group(2) : match.group(4);
+        return manager.matchesQueueDisconnect(name, ip, match.group(5));
     }
 }
