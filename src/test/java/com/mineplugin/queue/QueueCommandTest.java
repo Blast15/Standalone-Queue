@@ -135,7 +135,7 @@ public class QueueCommandTest {
     public void testStatusCommand() {
         boolean result = commandExecutor.onCommand(adminSender, mockCommand, "queue", new String[]{"status"});
         assertTrue(result);
-        assertEquals(3, sentMessages.size());
+        assertEquals(4, sentMessages.size());
         assertTrue(sentMessages.get(0).contains("TRẠNG THÁI HÀNG CHỜ"));
         assertTrue(sentMessages.get(1).contains("Online:"));
         assertTrue(sentMessages.get(2).contains("Đang xếp hàng:"));
@@ -233,4 +233,33 @@ public class QueueCommandTest {
         assertTrue(kickTabs.contains("Charlie"));
         assertTrue(kickTabs.contains("Chris"));
     }
+    @Test
+    void reloadReportsSuccessOnlyAfterCommitAndDispatchesCompletion() {
+        var pending = new java.util.concurrent.CompletableFuture<Void>();
+        List<Runnable> dispatched = new ArrayList<>();
+        var reload = new QueueCommand(null, queueManager, config, () -> pending, dispatched::add);
+        reload.onCommand(adminSender, mockCommand, "queue", new String[]{"reload"});
+        assertEquals(1, sentMessages.size());
+        assertFalse(sentMessages.getFirst().contains("Đã tải lại"));
+        pending.complete(null);
+        assertEquals(1, sentMessages.size());
+        assertEquals(1, dispatched.size());
+        dispatched.getFirst().run();
+        assertTrue(sentMessages.getLast().contains("Đã tải lại cấu hình"));
+    }
+
+    @Test
+    void reloadFailureReportsReasonAndKeepsRuntimeConfig() {
+        var previous = config.snapshot();
+        config.setAntiBotRuntimeOverride(true);
+        var reload = new QueueCommand(null, queueManager, config,
+                () -> java.util.concurrent.CompletableFuture.failedFuture(new IllegalArgumentException("queue.max-queue-size")),
+                Runnable::run);
+        reload.onCommand(adminSender, mockCommand, "queue", new String[]{"reload"});
+        assertTrue(sentMessages.getLast().contains("giữ cấu hình cũ"));
+        assertTrue(sentMessages.getLast().contains("queue.max-queue-size"));
+        assertSame(previous, config.snapshot());
+        assertTrue(config.isAntiBotEnabled());
+    }
+
 }

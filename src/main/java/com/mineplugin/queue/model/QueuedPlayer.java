@@ -16,6 +16,7 @@ public class QueuedPlayer implements Comparable<QueuedPlayer> {
     private final Clock clock;
     private static final java.util.concurrent.atomic.AtomicLong LEASE_GENERATOR = new java.util.concurrent.atomic.AtomicLong();
     private volatile long reservationId;
+    private boolean reservationExpiredNotice;
     private final UUID uuid;
     private final String username;
     private final String ipAddress;
@@ -127,7 +128,14 @@ public class QueuedPlayer implements Comparable<QueuedPlayer> {
     /** Moves an expired reservation holder behind current peers at the same priority. */
     public void requeueAfterExpiredReservation() {
         clearReservation();
+        reservationExpiredNotice = true;
         sequenceNumber = SEQUENCE_GENERATOR.incrementAndGet();
+    }
+
+    public boolean consumeReservationExpiredNotice() {
+        boolean notice = reservationExpiredNotice;
+        reservationExpiredNotice = false;
+        return notice;
     }
 
     /**
@@ -193,6 +201,7 @@ public class QueuedPlayer implements Comparable<QueuedPlayer> {
         this.priority = source.priority;
         this.slotReservedUntilTimestamp = source.slotReservedUntilTimestamp;
         this.reservationId = source.reservationId;
+        this.reservationExpiredNotice = source.reservationExpiredNotice;
     }
 
     /**

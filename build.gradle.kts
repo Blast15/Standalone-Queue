@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "com.mineplugin"
-version = "1.0.2-SNAPSHOT"
+version = "1.1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()

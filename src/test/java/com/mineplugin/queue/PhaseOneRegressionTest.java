@@ -61,7 +61,8 @@ class PhaseOneRegressionTest {
         UUID admin = UUID.randomUUID();
         permissions.set(admin, true, 0);
         assertEquals(ALLOWED_BYPASS, attempt(admin, "NewAdmin").type());
-        manager.releaseInFlight(admin);
+        manager.releaseInFlight(admin, manager.getAttemptId(admin));
+        manager.onConnectionClose(admin, "192.0.2.1");
         permissions.set(admin, false, 0);
         assertEquals(IN_QUEUE, attempt(admin, "RevokedAdmin").type());
     }
@@ -70,7 +71,7 @@ class PhaseOneRegressionTest {
     void newVipCannotStealExistingLease() {
         UUID occupant = enqueue("Occupant");
         UUID owner = enqueue("Owner");
-        manager.releaseInFlight(occupant);
+        manager.releaseInFlight(occupant, manager.getAttemptId(occupant));
         manager.cleanupTick();
         long lease = entry(owner).getReservationId();
         UUID vip = UUID.randomUUID();
@@ -87,11 +88,11 @@ class PhaseOneRegressionTest {
         UUID occupant = enqueue("Occupant");
         UUID first = enqueue("First");
         UUID second = enqueue("Second");
-        manager.releaseInFlight(occupant);
+        manager.releaseInFlight(occupant, manager.getAttemptId(occupant));
         manager.cleanupTick();
         clock.advance(elapsed);
         if (cleanupBefore) manager.cleanupTick();
-        assertEquals(elapsed < 1000 ? ALLOWED_RESERVED : IN_QUEUE, attempt(first, "First").type());
+        assertEquals(elapsed < 1000 ? ALLOWED_RESERVED : EXPIRED_AND_REQUEUED, attempt(first, "First").type());
         if (elapsed >= 1000) {
             assertEquals(second, manager.getQueueList().getFirst().getUuid());
             assertTrue(entry(second).hasActiveReservation());
@@ -122,7 +123,7 @@ class PhaseOneRegressionTest {
         config.load(yaml);
         UUID occupant = enqueue("Occupant");
         UUID owner = enqueue("Owner");
-        manager.releaseInFlight(occupant);
+        manager.releaseInFlight(occupant, manager.getAttemptId(occupant));
         manager.cleanupTick();
         clock.advance(1000);
         manager.cleanupTick();
@@ -136,8 +137,8 @@ class PhaseOneRegressionTest {
         UUID two = enqueue("Occupant2");
         UUID oldest = enqueue("Oldest");
         UUID newest = enqueue("Newest");
-        manager.releaseInFlight(one);
-        manager.releaseInFlight(two);
+        manager.releaseInFlight(one, manager.getAttemptId(one));
+        manager.releaseInFlight(two, manager.getAttemptId(two));
         manager.cleanupTick();
         assertEquals(2, manager.getReservedSlotCount());
         config.load(settings(1));
@@ -156,8 +157,8 @@ class PhaseOneRegressionTest {
         UUID b = enqueue("B");
         UUID c = enqueue("C");
         UUID d = enqueue("D");
-        manager.releaseInFlight(one);
-        manager.releaseInFlight(two);
+        manager.releaseInFlight(one, manager.getAttemptId(one));
+        manager.releaseInFlight(two, manager.getAttemptId(two));
         manager.cleanupTick();
         clock.advance(1000);
         manager.cleanupTick();
@@ -187,8 +188,8 @@ class PhaseOneRegressionTest {
         UUID a = enqueue("A");
         UUID b = enqueue("B");
         UUID c = enqueue("C");
-        manager.releaseInFlight(one);
-        manager.releaseInFlight(two);
+        manager.releaseInFlight(one, manager.getAttemptId(one));
+        manager.releaseInFlight(two, manager.getAttemptId(two));
         manager.cleanupTick();
         try (ExecutorService pool = Executors.newFixedThreadPool(4)) {
             CountDownLatch start = new CountDownLatch(1);
@@ -217,7 +218,7 @@ class PhaseOneRegressionTest {
             attempt(uuid, "Waiting" + i);
             waiting.add(uuid);
         }
-        occupants.forEach(manager::releaseInFlight);
+        occupants.forEach(uuid -> manager.releaseInFlight(uuid, manager.getAttemptId(uuid)));
         manager.cleanupTick();
         try (ExecutorService pool = Executors.newFixedThreadPool(50)) {
             CountDownLatch start = new CountDownLatch(1);
@@ -296,7 +297,8 @@ class PhaseOneRegressionTest {
         QueueManager queue = new QueueManager(null, config, resolver, clock);
         queue.handlePreLogin(UUID.randomUUID(), "Occupant", "192.0.2.1");
         assertEquals(ALLOWED_BYPASS, queue.handlePreLogin(op, "NewOp", "192.0.2.1").type());
-        queue.releaseInFlight(op);
+        queue.releaseInFlight(op, queue.getAttemptId(op));
+        queue.onConnectionClose(op, "192.0.2.1");
         resolver.refresh(Set.of(), true);
         assertEquals(IN_QUEUE, queue.handlePreLogin(op, "Revoked", "192.0.2.1").type());
         resolver.refresh(Set.of(op), true);
