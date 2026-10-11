@@ -35,9 +35,9 @@ T-001…T-008/T-010…T-012 nằm trong phase 1/2 suites; T-009 trong lifecycle 
 
 ## Điều kiện còn phải nghiệm thu
 
-1. Chạy [Paper runbook/probe](testing/phase-2-staging.md) trên môi trường online/offline với LuckPerms, ban/whitelist và đăng nhập chậm.
-2. Chạy [G3 NAT/ETA/load](testing/phase-3-staging.md), đo false-positive/heap/p95/p99 và chấp thuận ngưỡng vận hành.
-3. Bật persistence trên staging: graceful restart, kill process lúc flush, backup/corrupt file, thay đổi quyền/capacity trong downtime; kiểm tra chỉ WAITING hợp lệ trở lại.
+1. [Paper offline network matrix](testing/real-paper.md) đã chạy với ban/whitelist, đăng nhập chậm, late rejection và handoff. Còn online-mode với Mojang account và LuckPerms/backend/revoke thật.
+2. Tải network thật 500 waiting/50 online và shared-IP quota đã kiểm tra; còn [G3 NAT/ETA](testing/phase-3-staging.md), đo false-positive/heap/p95/p99 và chốt ngưỡng vận hành.
+3. Persistence bật trên staging: graceful restart, SIGKILL sau snapshot hoàn tất và corrupt snapshot đã kiểm tra. Còn kill giữa flush/syscall, power-loss filesystem và thay đổi quyền thật trong downtime.
 4. Review độc lập, canary và rollback rehearsal trước tag/release production. Chưa merge/release chỉ vì suite dùng doubles xanh.
 
 Mã triển khai giai đoạn 0–4 đã có ứng viên để review; **không đánh dấu toàn bộ exit gate đã Done** khi chưa có bằng chứng staging.

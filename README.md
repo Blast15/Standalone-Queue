@@ -1,14 +1,14 @@
 # StandaloneQueue
 
-[![Paper](https://img.shields.io/badge/Paper-1.21%2B-00a86b)](https://papermc.io/)
-[![Java](https://img.shields.io/badge/Java-21-orange)](https://adoptium.net/)
+[![Paper](https://img.shields.io/badge/Paper-1.21.11–26.3-00a86b)](https://papermc.io/)
+[![Java](https://img.shields.io/badge/Java-21%20%2F%2025-orange)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Plugin hàng chờ độc lập cho máy chủ Minecraft Paper, **hoàn toàn không cần máy chủ trung gian (Proxy / BungeeCord / Velocity)**.
 
 **Author:** BlastSama  
-**Version:** 2.0.0 (ứng viên tổng hợp giai đoạn 0–4; cần nghiệm thu Paper staging)
-**Supported API:** Paper 1.21+
+**Version:** 2.0.0 (ứng viên phát hành; còn gate online/LuckPerms và canary)
+**Phạm vi mục tiêu:** Paper 1.21.11–26.3; Java 21 cho 1.21.11, Java 25 cho 26.x. 26.3 còn là Paper BETA. Xem [ma trận kiểm thử thực tế](docs/testing/real-paper.md).
 
 StandaloneQueue keeps a full Paper server usable without a proxy: players receive a fair, priority-aware queue while administrators get bounded admission controls for join-bot bursts.
 
@@ -17,6 +17,7 @@ StandaloneQueue keeps a full Paper server usable without a proxy: players receiv
 - [2.0.0 migration, recovery và rollback](docs/releases/2.0.0.md)
 - [Đối chiếu toàn bộ lộ trình và gate còn chờ](docs/roadmap-status.md)
 - [2.0.0 verification](docs/testing/2.0.0-verification.md)
+- [Paper 1.21.11–26.3: network/recovery/load matrix](docs/testing/real-paper.md)
 
 - [Installation and first setup](docs/wiki/Installation.md)
 - [Queue and anti-joinbot configuration](docs/wiki/Configuration.md)

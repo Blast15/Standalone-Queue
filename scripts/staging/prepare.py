@@ -35,18 +35,25 @@ def download(url, target, expected):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--runtime', type=Path, default=ROOT / '.staging-work/paper-1.21.4')
+    parser.add_argument('--version', choices=['1.21.11', '26.1.1', '26.1.2', '26.2', '26.3'], default='1.21.11')
+    parser.add_argument('--allow-unstable', action='store_true', help='Explicitly allow Paper ALPHA/BETA for compatibility testing')
+    parser.add_argument('--runtime', type=Path)
     parser.add_argument('--prepare-only', action='store_true')
     parser.add_argument('--accept-eula', action='store_true', help='Explicitly accept Minecraft EULA: ' + EULA)
     args = parser.parse_args()
-    runtime = args.runtime.resolve()
+    runtime = (args.runtime or ROOT / ('.staging-work/paper-' + args.version)).resolve()
     runtime.mkdir(parents=True, exist_ok=True)
     marker = runtime / '.sq-staging-runtime'
     if not marker.exists() and any(runtime.iterdir()):
         raise SystemExit('Runtime must be empty or previously marked by this staging preparer')
     marker.write_text('StandaloneQueue isolated loopback staging, never a production directory\n')
-    with fetch('https://fill.papermc.io/v3/projects/paper/versions/1.21.4/builds') as response:
-        build = next(item for item in json.load(response) if item['channel'] == 'STABLE')
+    with fetch('https://fill.papermc.io/v3/projects/paper/versions/' + args.version + '/builds') as response:
+        builds = json.load(response)
+    build = next((item for item in builds if item['channel'] == 'STABLE'), None)
+    if build is None:
+        if not args.allow_unstable:
+            raise SystemExit('No STABLE Paper build for ' + args.version + '; use --allow-unstable for compatibility testing only')
+        build = builds[0]
     asset = build['downloads']['server:default']
     download(asset['url'], runtime / 'paper.jar', asset['checksums']['sha256'])
     with zipfile.ZipFile(runtime / 'paper.jar') as archive:
@@ -67,14 +74,14 @@ def main():
         properties.write_text('server-ip=127.0.0.1\nserver-port=25576\nonline-mode=false\n'
                               'max-players=1\nview-distance=2\nsimulation-distance=2\n'
                               'level-type=minecraft:flat\ngenerate-structures=false\n'
-                              'enforce-secure-profile=false\ndifficulty=peaceful\n'
+                              'enforce-secure-profile=false\nwhite-list=false\ndifficulty=peaceful\n'
                               'spawn-protection=0\nenable-rcon=false\nenable-query=false\n')
     eula = runtime / 'eula.txt'
     if args.accept_eula:
         eula.write_text('# Accepted explicitly for this isolated staging runtime\neula=true\n')
     elif not eula.exists():
         eula.write_text('# Read ' + EULA + ' before accepting\neula=false\n')
-    print(json.dumps({'runtime': str(runtime), 'paper_version': '1.21.4', 'build': build['id'],
+    print(json.dumps({'runtime': str(runtime), 'paper_version': args.version, 'channel': build['channel'], 'build': build['id'],
                       'sha256': asset['checksums']['sha256'], 'eula': EULA,
                       'status': 'prepared; gameplay tests have not run'}, ensure_ascii=False))
     if args.prepare_only:
@@ -84,7 +91,7 @@ def main():
         raise SystemExit('Minecraft EULA is not accepted. Review ' + EULA + ' then explicitly use --accept-eula.')
     java = str(Path(os.environ['JAVA_HOME']) / 'bin/java') if os.environ.get('JAVA_HOME') else shutil.which('java')
     if not java:
-        raise SystemExit('JDK 21 is required')
+        raise SystemExit('Java 21 is required for 1.21.11; Java 25 for 26.x')
     raise SystemExit(subprocess.call([java, '-Xms256M', '-Xmx1G', '-jar', 'paper.jar', '--nogui'], cwd=runtime))
 
 

@@ -30,7 +30,7 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
     const port = request.port ?? 25576
     if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid staging port')
     const client = mc.createClient({
-      host: '127.0.0.1', port, username: request.name, version: '1.21.4', auth: 'offline',
+      host: '127.0.0.1', port, username: request.name, version: request.version ?? '1.21.11', auth: 'offline',
       connect: (client) => client.setSocket(net.createConnection({ host: '127.0.0.1', port, localAddress: address }))
     })
     clients.set(request.id, client)

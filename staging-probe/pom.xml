@@ -11,7 +11,7 @@
     </repositories>
     <dependencies>
         <dependency><groupId>com.mineplugin</groupId><artifactId>StandaloneQueue</artifactId><version>${project.version}</version><scope>provided</scope></dependency>
-        <dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>1.21.4-R0.1-SNAPSHOT</version><scope>provided</scope></dependency>
+        <dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>1.21.11-R0.1-SNAPSHOT</version><scope>provided</scope></dependency>
     </dependencies>
     <build>
         <plugins>

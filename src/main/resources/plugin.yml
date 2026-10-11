@@ -1,8 +1,8 @@
 name: StandaloneQueue
-version: 1.2.0-SNAPSHOT
+version: ${project.version}
 softdepend: [LuckPerms]
 main: com.mineplugin.queue.StandaloneQueuePlugin
-api-version: '1.21'
+api-version: '1.21.11'
 author: BlastSama
 description: Plugin hang cho tu dong khong can proxy cho may chu Paper
 

@@ -6,7 +6,9 @@
 - Thêm recovery regressions, persistence status và restart-only configuration; giữ snapshot lỗi và fallback memory-only.
 - Bổ sung expiry/permission counters và histogram thời gian chờ đến queued JOIN.
 - Đồng bộ Maven/Gradle/staging probe 2.0.0; cập nhật audit roadmap, backup/migration/rollback và release notes.
-- Chưa nghiệm thu Paper/client/LuckPerms thật, canary và filesystem power-loss; xem `docs/releases/2.0.0.md` và `docs/roadmap-status.md`.
+- Nâng API tối thiểu lên Paper 1.21.11, sửa version descriptor JAR, giữ bytecode Java 21; kiểm tra runtime Java 21/25.
+- Thêm automated loopback network/recovery matrix, SIGKILL, corrupt snapshot, ban/whitelist và bài tải thực 500 waiting/50 online; CI release chờ matrix hoàn tất.
+- Còn gate online-mode/LuckPerms thật, canary và filesystem power-loss; xem `docs/releases/2.0.0.md` và `docs/roadmap-status.md`.
 
 
 ## 1.2.0-SNAPSHOT — phase 3 (unreleased)

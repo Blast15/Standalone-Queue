@@ -74,7 +74,7 @@ class PaperLoginPipelineIT {
             case "getName" -> name;
             default -> throw new AssertionError(method);
         });
-        return new AsyncPlayerPreLoginEvent(name, address, address, uuid, false, profile, "staging");
+        return new AsyncPlayerPreLoginEvent(name, address, address, uuid, false, profile);
     }
 
     private void async(Runnable action) throws Exception {
