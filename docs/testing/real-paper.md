@@ -1,6 +1,6 @@
 # Paper 1.21.11–26.3 — network / recovery / load
 
-Cập nhật 11/10/2026. Phạm vi mục tiêu do chủ dự án xác nhận: **1.21.11 đến 26.3**. Chủ dự án đã đồng ý Minecraft EULA cho các runtime staging cô lập. Đây là kiểm tra server Paper thật và socket loopback; chưa phải nghiệm thu production online-mode/LuckPerms.
+Cập nhật 11/10/2026. Phạm vi mục tiêu do chủ dự án xác nhận: **1.21.11 đến 26.3**. Chủ dự án đã đồng ý Minecraft EULA cho các runtime staging cô lập. Đây là kiểm tra server Paper thật và socket loopback; CI bổ sung backend LuckPerms/H2 thật, online pipeline mã hóa với session fixture và soak 300 giây; nghiệm thu tại máy chủ đích vẫn riêng biệt.
 
 ## Ma trận đã thực nghiệm
 
@@ -72,15 +72,27 @@ Java và client phải được spawn trong cùng network namespace; `smoke.py` 
 
 `minecraft-protocol` 1.68.0 hỗ trợ 1.21.11/26.1.x. Với 26.2/26.3, `raw_client.py` lấy protocol number từ `version.json` Mojang và packet registration từ **đúng patched server** bằng `javap`, ghi `raw-protocol-map.json` cùng hash JAR. Nó xử lý compression, configuration, known packs, teleport acknowledgement và keepalive; bỏ qua world rendering/gameplay. Không relabel 26.1 thành protocol mới. Relative teleport chưa được hỗ trợ và sẽ làm test fail rõ ràng.
 
-## Gate production còn mở
+## Qualification bổ sung cho release
 
-- Online-mode với tài khoản Minecraft được xác thực thật; UUID/auth/session không được mock trong kết quả này.
-- LuckPerms binary/storage/event bus thật, priority/bypass/context và revoke trong downtime/reload. Unit provider doubles đã qua nhưng không thay thế backend thật. Download API trả 502; endpoint metadata/download trả 403 trong môi trường này. Build source đã thử nhưng Gradle dependency network bị chặn; không coi là đã chạy LuckPerms.
-- SIGKILL được thực hiện sau snapshot đã hoàn tất; chưa thử power-loss hoặc kill giữa filesystem syscall. Các atomic-write failure cases có unit tests riêng.
-- Rehearsal backup/rollback trên filesystem/server mục tiêu, soak/canary, heap/GC, p95/p99, NAT false-positive và ngưỡng vận hành.
-- Paper 26.3 STABLE khi upstream có bản tương ứng; retest trước khi bỏ nhãn thử nghiệm.
+CI chạy LuckPerms 5.5.87 binary/H2 trên cả năm runtime với online-mode=true: H2 save/restart, priority/bypass, static server context và world context bị loại, explicit deny/Bukkit default false, grant/revoke, reload và quyền bị revoke trước recovery. Binary source URL/version/SHA-256 và từng kết quả SQLP nằm trong luckperms-source.json/luckperms-result.json của artifact. Hash là checksum quan sát của binary tải từ endpoint chính thức, không phải chữ ký nhà cung cấp.
 
-Không tag/merge để tuyên bố production-ready chỉ vì ma trận offline xanh. Java runtime staging có cảnh báo DNS khi gọi dịch vụ public-key/version của Mojang/Paper; đó cũng là lý do không suy diễn xác thực online từ test offline. Những lỗi snapshot chủ động tạo có SEVERE dự kiến và được kiểm tra preservation.
+Registered Bukkit default false được LuckPerms trả về như quyết định FALSE và chặn OP fallback; test UNDEFINED fallback ở unit resolver vẫn giữ. UUID backend là fixture và handlePreLogin được gọi trực tiếp trong probe, không giả thành tài khoản Mojang.
+
+Paper 1.21.11 còn chạy online-mode đầy đủ encryption/session lookup/PLAY/Paper JOIN với session HTTP fixture bind loopback và các profile cho phép cố định. Quyền được lấy từ LuckPerms thật; kiểm tra tier order, lease handoff, live bypass/revoke và ban/whitelist. Đây là test-session service giả lập, không xác thực tài khoản Mojang thật. Fixture không được dùng ngoài staging.
+
+Tải Paper 26.2 được giữ 300 giây: 50 client online, 500 WAITING, leases/inFlight=0, capacity không vượt; sau đó handoff đúng một slot. Snapshot samples ở smoke-soak.json. Không coi 5 phút là canary dài hạn hoặc phép đo SLO.
+
+CI upload cả file trong .staging-work bằng include-hidden-files=true; release đóng gói bằng chứng, SHA256SUMS và BUILD-PROVENANCE.txt cùng JAR. Mỗi lượt prepare ghi build/channel/hash thực tế: CI mới có thể dùng Paper build mới hơn bảng thực nghiệm lịch sử ở trên, gồm 26.3 build 174 BETA.
+
+## Nghiệm thu vận hành tại máy chủ đích
+
+- Mojang account thật và dịch vụ session chính thức; online fixture không đáp ứng gate này.
+- Backup/rollback rehearsal, canary dài hạn, heap/GC/p95/p99 và NAT false-positive theo workload máy đích.
+- Power-loss hoặc kill giữa filesystem syscall chưa được mô phỏng; atomic-write failure có unit tests riêng.
+- Retest Paper 26.3 STABLE khi upstream cung cấp trước khi bỏ nhãn thử nghiệm.
+- Review độc lập chưa có bằng chứng; Copilot không cung cấp review vì quota.
+
+Các lỗi snapshot cố tình tạo có SEVERE dự kiến và preservation được kiểm tra. Release artifact có CI gate; chưa triển khai lên một máy chủ production được chỉ định.
 
 ## Nguồn chính thức
 

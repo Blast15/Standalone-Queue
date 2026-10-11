@@ -7,8 +7,10 @@
 Plugin hàng chờ độc lập cho máy chủ Minecraft Paper, **hoàn toàn không cần máy chủ trung gian (Proxy / BungeeCord / Velocity)**.
 
 **Author:** BlastSama  
-**Version:** 2.0.0 (ứng viên phát hành; còn gate online/LuckPerms và canary)
-**Phạm vi mục tiêu:** Paper 1.21.11–26.3; Java 21 cho 1.21.11, Java 25 cho 26.x. 26.3 còn là Paper BETA. Xem [ma trận kiểm thử thực tế](docs/testing/real-paper.md).
+**Version:** 2.0.0
+**Phạm vi mục tiêu:** Paper 1.21.11–26.3; Java 21 cho 1.21.11, Java 25 cho 26.x. 26.1.1 ALPHA và 26.3 BETA được hỗ trợ thử nghiệm. Xem [ma trận kiểm thử thực tế](docs/testing/real-paper.md).
+
+Tải [bản 2.0.0 và bằng chứng kiểm thử](https://github.com/Blast15/Standalone-Queue/releases/tag/v2.0.0). CI chạy 158 test trên Java 21/25, năm runtime Paper thật, LuckPerms/H2 thật và soak 500 WAITING/50 online trong 5 phút. Online-mode có test mã hóa dùng session fixture; đăng nhập Mojang thật và canary tại máy chủ đích là bước nghiệm thu triển khai.
 
 StandaloneQueue keeps a full Paper server usable without a proxy: players receive a fair, priority-aware queue while administrators get bounded admission controls for join-bot bursts.
 
@@ -74,7 +76,7 @@ StandaloneQueue keeps a full Paper server usable without a proxy: players receiv
    - `/queue stats` phân loại reject và báo JOIN/timeout/latency; quyền riêng cho stats, inspect và quản lý.
    - `/queue pause|resume|move` giữ an toàn cho lease/in-flight và ghi audit log.
    - ETA lấy từ JOIN thành công của hàng chờ; thiếu dữ liệu hiển thị “Đang cập nhật”.
-   - Metrics API không chứa nhãn định danh và không mở HTTP endpoint. G3 chưa nghiệm thu staging.
+   - Metrics API không chứa nhãn định danh và không mở HTTP endpoint. Ngưỡng/SLO cần đo tại máy chủ đích.
 
 10. **Phục hồi hàng chờ (tùy chọn)**:
    - Snapshot file atomic trên worker riêng; giữ thứ tự/heartbeat còn hạn khi restart.

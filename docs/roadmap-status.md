@@ -1,8 +1,8 @@
-# Đối chiếu lộ trình — ứng viên 2.0.0
+# Đối chiếu lộ trình — 2.0.0
 
 Nguồn: hai tài liệu người dùng cung cấp, `StandaloneQueue_LoTrinhNangCap(4).md` và `StandaloneQueue_TongHopVanDe(4).md`, lập từ v1.0.1 @ `9f220ed`. Audit hiện tại bắt đầu ở `main` @ `b64d22d`. Các mốc 1.0.2/1.1.0/1.2.0/1.3.0 trong roadmap là đề xuất; phiên bản tổng hợp theo yêu cầu là **2.0.0**.
 
-| Phần | Trạng thái khi bắt đầu | Kết quả ở ứng viên 2.0.0 |
+| Phần | Trạng thái khi bắt đầu | Kết quả ở 2.0.0 |
 |---|---|---|
 | G0: invariants, fake clock/resolver, baseline | Đã có | Giữ contract/harness, thêm recovery và benchmark so với main |
 | G1: quyền, lease, TTL, snapshot | Đã gộp PR #1 | Giữ test hồi quy, kiểm tra cùng build mới |
@@ -10,7 +10,7 @@ Nguồn: hai tài liệu người dùng cung cấp, `StandaloneQueue_LoTrinhNang
 | G3: anti-bot, ETA, quản trị, metrics | Đã gộp PR #3 | Bổ sung expiry/permission counters và wait histogram |
 | G4: storage/recovery/migration | Chưa có | Snapshot atomic async, ownership, validation, recovery suite, hướng dẫn backup/rollback |
 | G5: tích hợp tùy chọn | Chưa chốt scope | Deferred theo chính tài liệu; không đưa Discord/HTTP/đa ngôn ngữ mới vào 2.0.0 |
-| Gate Paper/canary/SLO và review độc lập | Chưa nghiệm thu | Blocked: cần server/client/provider thật và người review |
+| Gate Paper/canary/SLO và review độc lập | Chưa nghiệm thu | Paper/client/LuckPerms thật trong CI; canary/SLO máy đích và review độc lập chưa có bằng chứng |
 
 ## Ma trận SQ-001…SQ-016
 
@@ -35,12 +35,12 @@ T-001…T-008/T-010…T-012 nằm trong phase 1/2 suites; T-009 trong lifecycle 
 
 ## Điều kiện còn phải nghiệm thu
 
-1. [Paper offline network matrix](testing/real-paper.md) đã chạy với ban/whitelist, đăng nhập chậm, late rejection và handoff. Còn online-mode với Mojang account và LuckPerms/backend/revoke thật.
+1. [Paper offline network matrix](testing/real-paper.md) đã chạy với ban/whitelist, đăng nhập chậm, late rejection và handoff. LuckPerms/H2/revoke thật chạy cả năm runtime; online pipeline mã hóa dùng session fixture trên 1.21.11. Còn Mojang account thật tại máy đích.
 2. Tải network thật 500 waiting/50 online và shared-IP quota đã kiểm tra; còn [G3 NAT/ETA](testing/phase-3-staging.md), đo false-positive/heap/p95/p99 và chốt ngưỡng vận hành.
-3. Persistence bật trên staging: graceful restart, SIGKILL sau snapshot hoàn tất và corrupt snapshot đã kiểm tra. Còn kill giữa flush/syscall, power-loss filesystem và thay đổi quyền thật trong downtime.
-4. Review độc lập, canary và rollback rehearsal trước tag/release production. Chưa merge/release chỉ vì suite dùng doubles xanh.
+3. Persistence bật trên staging: graceful restart, SIGKILL sau snapshot hoàn tất và corrupt snapshot đã kiểm tra. Còn kill giữa flush/syscall, power-loss filesystem ; quyền thật bị revoke trước recovery được kiểm tra với H2.
+4. Review độc lập, canary và rollback rehearsal tại máy chủ đích. Release artifact được gate bằng CI server/network/backend thật; không được suy diễn việc triển khai thực tế từ release.
 
-Mã triển khai giai đoạn 0–4 đã có ứng viên để review; **không đánh dấu toàn bộ exit gate đã Done** khi chưa có bằng chứng staging.
+Mã triển khai giai đoạn 0–4 thuộc bản 2.0.0; **không đánh dấu toàn bộ exit gate đã Done** khi chưa có bằng chứng staging.
 
 ## Nguồn GitHub
 
