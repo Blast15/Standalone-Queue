@@ -132,6 +132,9 @@ public class QueuedPlayer implements Comparable<QueuedPlayer> {
         sequenceNumber = SEQUENCE_GENERATOR.incrementAndGet();
     }
 
+    /** Engine-only administrative reorder; preserve heartbeat, priority and lease. */
+    public void refreshSequence() { sequenceNumber = SEQUENCE_GENERATOR.incrementAndGet(); }
+
     public boolean consumeReservationExpiredNotice() {
         boolean notice = reservationExpiredNotice;
         reservationExpiredNotice = false;

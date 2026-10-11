@@ -7,7 +7,7 @@
 Plugin hàng chờ độc lập cho máy chủ Minecraft Paper, **hoàn toàn không cần máy chủ trung gian (Proxy / BungeeCord / Velocity)**.
 
 **Author:** BlastSama  
-**Version:** 1.1.0-SNAPSHOT (ứng viên giai đoạn 2, chưa phát hành)
+**Version:** 1.2.0-SNAPSHOT (ứng viên giai đoạn 3, chưa phát hành)
 **Supported API:** Paper 1.21+
 
 StandaloneQueue keeps a full Paper server usable without a proxy: players receive a fair, priority-aware queue while administrators get bounded admission controls for join-bot bursts.
@@ -19,6 +19,9 @@ StandaloneQueue keeps a full Paper server usable without a proxy: players receiv
 - [Operations runbook](docs/wiki/Operations.md)
 - [Security model and limitations](docs/wiki/Security.md)
 - [Behavior contract](docs/architecture/queue-invariants.md)
+- [Phase 3 migration](docs/releases/1.2.0.md)
+- [Phase 3 staging acceptance](docs/testing/phase-3-staging.md)
+- [Phase 3 local load comparison](docs/testing/phase-3-benchmark.md)
 - [Phase 2 migration](docs/releases/1.1.0.md)
 - [Paper staging tests and probe](docs/testing/phase-2-staging.md)
 - [Phase 1 verification record](docs/releases/1.0.2.md)
@@ -61,7 +64,12 @@ StandaloneQueue keeps a full Paper server usable without a proxy: players receiv
    - Mỗi lượt được cấp slot có token; timeout không tự giải phóng slot của handshake còn sống.
    - Reload làm mới mọi trọng số đang chờ và giữ chủ sở hữu/thời hạn reservation còn hiệu lực.
    - Lọc console là tùy chọn riêng, mặc định tắt; giữ log WARN/ERROR/exception.
-   - Có test sự kiện Paper và plugin probe riêng cho staging; G2 vẫn cần chạy trên server thật.
+   - Có test sự kiện Paper và plugin probe riêng cho staging; các gate staging vẫn cần chạy trên server thật.
+9. **Vận hành giai đoạn 3**:
+   - `/queue stats` phân loại reject và báo JOIN/timeout/latency; quyền riêng cho stats, inspect và quản lý.
+   - `/queue pause|resume|move` giữ an toàn cho lease/in-flight và ghi audit log.
+   - ETA lấy từ JOIN thành công của hàng chờ; thiếu dữ liệu hiển thị “Đang cập nhật”.
+   - Metrics API không chứa nhãn định danh và không mở HTTP endpoint. G3 chưa nghiệm thu staging.
 
 ---
 
@@ -70,15 +78,19 @@ StandaloneQueue keeps a full Paper server usable without a proxy: players receiv
 ### Lệnh Quản Trị:
 | Lệnh | Mô tả | Quyền hạn |
 |---|---|---|
-| `/queue status` | Xem thông số server, số slot online, override và số người đang xếp hàng | `queue.admin` |
-| `/queue list` | Xem danh sách chi tiết từng người trong hàng chờ, thứ tự, ping cuối | `queue.admin` |
-| `/queue kick <tên>` | Đá một người chơi ra khỏi hàng chờ | `queue.admin` |
-| `/queue clear` | Xóa sạch toàn bộ hàng chờ | `queue.admin` |
+| `/queue status`, `/queue stats` | Trạng thái, counter theo nguyên nhân, JOIN/timeout/latency | `queue.stats` |
+| `/queue inspect <player hoặc uuid>` | UUID, tier, vị trí, TTL, lease và phase; ẩn IP | `queue.inspect` |
+| `/queue pause`, `/queue resume` | Tạm dừng/tiếp tục cấp slot mới, giữ lease và in-flight | `queue.manage` |
+| `/queue move <player> <position>` | Đổi thứ tự cùng tier, không vượt lease | `queue.manage` |
+| `/queue list` | Xem danh sách chi tiết từng người trong hàng chờ, thứ tự, ping cuối | `queue.inspect` |
+| `/queue kick <tên>` | Đá một người chơi ra khỏi hàng chờ | `queue.manage` |
+| `/queue clear` | Xóa sạch toàn bộ hàng chờ | `queue.manage` |
 | `/queue reload` | Validate, làm mới priority và điều hòa slot nguyên tử; lỗi giữ cấu hình cũ | `queue.admin` |
 | `/queue antibot on\|off\|status` | Bật, tắt hoặc xem trạng thái bảo vệ join-bot | `queue.admin` |
 
 ### Quyền Hạn (Permissions):
-- `queue.admin`: Toàn quyền quản trị hàng chờ (mặc định: OP).
+- `queue.admin`: Toàn quyền quản trị hàng chờ (mặc định: OP), vẫn bao gồm mọi lệnh trên.
+- `queue.inspect`, `queue.stats`, `queue.manage`: Quyền riêng theo bảng, mặc định OP.
 - `queue.bypass`: Bỏ qua hàng chờ và vào thẳng server.
 - `queue.priority.vip`: Ưu tiên hàng chờ VIP (Weight: 10).
 - `queue.priority.mvp`: Ưu tiên hàng chờ MVP (Weight: 20).
@@ -92,7 +104,7 @@ StandaloneQueue keeps a full Paper server usable without a proxy: players receiv
 ```bash
 mvn -B clean verify
 ```
-File JAR sẽ nằm tại `target/StandaloneQueue-1.1.0-SNAPSHOT.jar`.
+File JAR sẽ nằm tại `target/StandaloneQueue-1.2.0-SNAPSHOT.jar`.
 
 Maven là build nguồn chuẩn và là gate của CI. `build.gradle.kts` được giữ để tham khảo cho IDE; Gradle chưa là đường build được kiểm chứng hoặc hỗ trợ phát hành.
 
@@ -112,7 +124,7 @@ queue:
     enabled: true               # Bật bảo vệ join-bot mặc định
     window-seconds: 10          # Cửa sổ tính giới hạn
     max-attempts-per-ip: 20     # Số lần thử tối đa từ một IP/cửa sổ
-    max-queued-per-ip: 5        # Số bot tối đa cùng IP trong queue
+    max-queued-per-ip: 5        # Số người tối đa cùng IP trong queue (ảnh hưởng NAT)
     global-attempts-per-window: 100 # Tổng số lần thử toàn server/cửa sổ
 ```
 

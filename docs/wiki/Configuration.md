@@ -47,3 +47,11 @@ Reload reads and validates YAML off-thread, refreshes every queued player's perm
 Suppression is independent of `debug-log` and defaults off. When on, only known Paper network sources and exact recent plugin-generated name/IP/reason disconnects are matched. Unknown sources/formats and WARN/ERROR/throwable messages survive. Debug adds lifecycle token/UUID/phase traces. Status adds in-flight/timeout counts.
 
 `kick-reservation-expired` supports the same placeholders as `kick-in-queue`, including the player's new `<position>/<total>`. `<time>` retains the current configured reservation duration for old templates. `kick-slot-ready` is deprecated and unused. New login-timeout/admission-required and admin reload/status templates have fallbacks for old files. See [migration](../releases/1.1.0.md) for all policies and [staging](../testing/phase-2-staging.md) for compatibility checks.
+
+## Phase 3 windows and messages (1.2.0)
+
+`queue.rate-limit-seconds` is UUID cooldown (0 disables it); IP/global limits count attempts in a sliding `window-seconds` window. UUID/IP rejects are checked before charging global budget. IP/global attempt settings must be 1..4096 on reload; legacy startup clamps higher values. Tracking is capped at 4096 UUIDs/IPs; two bounded global budgets back at most 8192 accepted IP timestamps. Queue IP quota remains separately configurable.
+
+A live lease matching original UUID/IP gets protected global headroom, still constrained by UUID/IP limits. This does not authenticate offline users. Defaults IP 20/quota 5 can reject legitimate shared-NAT traffic; measure labeled-client false positives and tune, rather than treating these defaults as universal. See the [NAT scenario and migration](../releases/1.2.0.md).
+
+`messages.kick-paused` is optional with a Vietnamese fallback. `<eta>` now uses successful queued JOIN observations, reports an approximate range, and shows `Đang cập nhật` with insufficient/stale traffic. No fixed per-position time remains. Pause is runtime-only, survives reload and resets on restart.

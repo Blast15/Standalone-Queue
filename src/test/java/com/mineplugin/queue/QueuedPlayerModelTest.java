@@ -108,11 +108,11 @@ public class QueuedPlayerModelTest {
 
         // ETA vị trí #2 (40s)
         QueuePosition pos2 = new QueuePosition(2, 10, 300L, false, 0);
-        assertEquals("~40 giây", pos2.getFormattedEta());
+        assertEquals("Đang cập nhật", pos2.getFormattedEta());
 
         // ETA vị trí #5 (100s = 1m 40s)
         QueuePosition pos5 = new QueuePosition(5, 10, 300L, false, 0);
-        assertEquals("~1 phút 40 giây", pos5.getFormattedEta());
+        assertEquals("Đang cập nhật", pos5.getFormattedEta());
     }
 
     @Test

@@ -27,6 +27,7 @@ queue:
   in-flight-timeout-seconds: 30
 
   # Giới hạn thời gian tối thiểu giữa các lần kết nối (tính bằng giây) để chống spam bot / DDoS.
+  # UUID cooldown: rejected UUID retries do not extend this deadline; 0 disables UUID cooldown.
   rate-limit-seconds: 2
 
   # Giới hạn số lượng người tối đa có thể ở trong hàng chờ cùng lúc (phải lớn hơn 0).
@@ -35,9 +36,16 @@ queue:
   # Bảo vệ admission trước join-bot, đặc biệt cần thiết trên server crack.
   anti-bot:
     enabled: true
+    # Sliding window in seconds. Expired timestamps are removed at the exact boundary.
+    # UUID/IP rejection is checked before charging global budget; queue quota rejection still consumes an attempt.
     window-seconds: 10
+    # Shared by all players behind NAT. Tune using RATE_LIMITED_IP counters, not usernames.
+    # Hard safety ceiling: 4096 timestamps per IP and globally, 4096 tracked UUIDs/IPs.
     max-attempts-per-ip: 20
+    # Default 5 is deliberately restrictive for NAT; raise for known shared networks after measurement.
     max-queued-per-ip: 5
+    # Exact live lease UUID/IP owners get global headroom, still subject to UUID/IP limits.
+    # This is traffic budgeting, not IP/UUID authentication, especially in offline-mode.
     global-attempts-per-window: 100
 
   # Tự động gửi thông báo trên console khi có người vào/rời hàng chờ hoặc được cấp slot.
@@ -73,6 +81,7 @@ priorities:
 # Định dạng tin nhắn (Hỗ trợ MiniMessage: <gradient>, <color>, <bold>, <click>, <hover>, ...)
 # Tài liệu MiniMessage: https://docs.advntr.dev/minimessage/format.html
 messages:
+  kick-paused: "<yellow>Hàng chờ đang tạm dừng. Vui lòng thử lại sau.</yellow>"
   prefix: "<gradient:#ff7700:#ffaa00><b>[HÀNG CHỜ]</b></gradient> <gray>»</gray> "
 
   # Màn hình ngắt kết nối hiển thị khi người chơi đang trong hàng chờ

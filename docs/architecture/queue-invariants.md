@@ -48,3 +48,11 @@ All lifecycle changes use the write lock. Async close, cleanup, pre-login and re
 ## Automated coverage
 
 `PhaseOneRegressionTest` covers SQ-001/002/003/004/005/007 and the phase 1 portion of SQ-016: first-login rights, revoke, deadlines, stable leases, capacity shrink, duplicate UUID, and 500 queued players with 50 concurrent reader/writer tasks. `LuckPermsPermissionResolverTest` checks adapter calls, denial/OP fallback, provider-user cleanup, offline identities and the outstanding-lookup bound. `PhaseTwoRegressionTest`, `QueueSettingsReloadTest` and console/command tests add SQ-006/008/009/012 regression coverage. Failsafe runs `PaperLoginPipelineIT` through actual API event types and production listeners, with controlled identity/storage/capacity fixtures. These tests do not replace a real Paper/LuckPerms staging run; use the [staging probe and matrix](../testing/phase-2-staging.md).
+
+## Phase 3 operations and estimates
+
+UUID cooldown is checked before IP/global sliding windows. IP rejection never spends global budget. A live UUID/original-IP lease owner can use a separate, equally bounded global window; both windows and all IP timestamps are bounded. This equality is not identity authentication. Reasons and lifecycle counters are explicit, immutable snapshots; text rendering takes place outside locks.
+
+Pause stops new pre-login/lease allocation but preserves existing lease redemption and in-flight completion. Expiry/capacity reconciliation continue; reload preserves pause. Administrative move cannot cross priority tiers, leases (including unreconciled expired ones), or tracked connections, and preserves heartbeat. Granular permissions are enforced in command dispatch and tab completion; queue.admin stays an umbrella.
+
+Only exact successful queued JOIN transitions feed a fixed 900-second bucket history and inter-arrival EWMA. Quit/pre-login/cancelled/failed/direct/bypass traffic cannot advertise queue throughput. Cached ETA accounts for queue rank plus unfinished redeemed queued admissions, reports a heuristic range and withholds stale/insufficient estimates. See [phase 3 policy](../releases/1.2.0.md) for exact thresholds and caveats.

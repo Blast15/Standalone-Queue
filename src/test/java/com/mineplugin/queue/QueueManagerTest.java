@@ -194,7 +194,7 @@ public class QueueManagerTest {
 
         // Kết nối lại ngay lập tức (dưới 1s rate limit)
         QueueManager.LoginDecision d2 = queueManager.handlePreLogin(u, "Spammer", "127.0.0.1");
-        assertEquals(QueueManager.LoginResultType.RATE_LIMITED, d2.type(), "Phải bị rate-limit khi reconnect dưới 1s");
+        assertEquals(QueueManager.LoginResultType.RATE_LIMITED_UUID, d2.type(), "Phải bị rate-limit khi reconnect dưới 1s");
     }
 
     @Test

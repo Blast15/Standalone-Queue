@@ -149,6 +149,8 @@ public class QueueConfig {
         return parseText(settings.messages().get("kick-slot-ready"));
     }
 
+    public synchronized Component formatKickPaused() { return parseText(settings.messages().get("kick-paused")); }
+
     public synchronized Component formatKickRateLimited() {
         return parseText(settings.messages().get("kick-rate-limited"));
     }
