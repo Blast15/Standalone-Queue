@@ -132,7 +132,7 @@ jobs:
         if: matrix.minecraft == '26.2'
         run: |
           python3 scripts/staging/prepare.py --version '26.2' --runtime .staging-work/load-26.2 --accept-eula --prepare-only
-          python3 scripts/staging/smoke.py --version '26.2' --runtime .staging-work/load-26.2 --load
+          python3 scripts/staging/smoke.py --version '26.2' --runtime .staging-work/load-26.2 --load --soak-seconds 300
       - name: Real LuckPerms H2 and online authentication boundary
         run: |
           python3 scripts/staging/prepare.py --version '${{ matrix.minecraft }}' --runtime '.staging-work/lp-${{ matrix.minecraft }}' --allow-unstable --accept-eula --prepare-only
@@ -147,7 +147,8 @@ jobs:
             .staging-work/**/raw-protocol-map.json
             .staging-work/**/paper-source.json
             .staging-work/**/luckperms-*.json
-          if-no-files-found: warn
+          include-hidden-files: true
+          if-no-files-found: error
 
   release:
     name: Publish only after compatibility checks

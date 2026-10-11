@@ -302,7 +302,7 @@ class Runtime:
         finally:
             self.stop()
 
-    def run_load(self):
+    def run_load(self, soak_seconds=0):
         config = self.path / 'plugins/StandaloneQueue/config.yml'
         if config.exists():
             raise ValueError('Load check requires a fresh isolated runtime')
@@ -329,6 +329,14 @@ class Runtime:
             self.connect('Overflow', 'kick', '127.0.30.1')
             self.state(online=50, queued=500, leases=0, inFlight=0)
             self.check('500 waiting entries / 50 online: bounded queue rejects overflow')
+            if soak_seconds:
+                deadline = time.monotonic() + soak_seconds
+                samples = []
+                while time.monotonic() < deadline:
+                    samples.append(self.state(online=50, queued=500, leases=0, inFlight=0))
+                    time.sleep(min(5, max(0, deadline - time.monotonic())))
+                (self.path / 'smoke-soak.json').write_text(json.dumps({'seconds': soak_seconds, 'samples': samples}, indent=2) + '\n')
+                self.check(f'500 waiting / 50 online invariants sustained for {soak_seconds}s')
             self.rpc(action='close', id=holders[0])
             self.state(online=49, queued=500, leases=1, inFlight=0)
             replacement = self.connect('Queued0', 'play', '127.0.20.1')
@@ -347,12 +355,15 @@ def main():
     parser.add_argument('--boot-only', action='store_true', help='No network lifecycle claim for unsupported client protocols')
     parser.add_argument('--runtime', type=Path)
     parser.add_argument('--load', action='store_true', help='50 real online clients / 500 queued entries; requires a separate fresh runtime')
+    parser.add_argument('--soak-seconds', type=int, default=0)
     args = parser.parse_args()
+    if not 0 <= args.soak_seconds <= 900:
+        parser.error('--soak-seconds must be between 0 and 900')
     runtime = Runtime(args.version, args.java, args.runtime)
     result = {'version': args.version, 'scope': 'load-500-50' if args.load else 'boot-only' if args.boot_only else 'offline-network', 'checks': runtime.checks}
     try:
         if args.load:
-            runtime.run_load()
+            runtime.run_load(args.soak_seconds)
         else:
             runtime.run(args.boot_only)
         result['result'] = 'PASS'

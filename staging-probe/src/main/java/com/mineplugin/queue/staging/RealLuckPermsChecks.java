@@ -69,8 +69,8 @@ final class RealLuckPermsChecks {
             require(!deniedOp.bypass(), "Explicit LuckPerms deny must override OP fallback");
             save(api, VIP);
             operators.refresh(Set.of(VIP), true);
-            require(resolver.resolve(VIP, "UntrustedName").get(20, TimeUnit.SECONDS).bypass(), "Undefined LuckPerms must allow OP fallback");
-            probe.getLogger().info("SQLP explicit-deny-op-fallback PASS");
+            require(!resolver.resolve(VIP, "UntrustedName").get(20, TimeUnit.SECONDS).bypass(), "Registered Bukkit default false must override OP fallback");
+            probe.getLogger().info("SQLP explicit-deny-and-bukkit-default PASS");
 
             save(api, CONTEXT, PermissionNode.builder("queue.priority.staff").value(true).withContext("world", "staging").build());
             operators.refresh(Set.of(), true);
