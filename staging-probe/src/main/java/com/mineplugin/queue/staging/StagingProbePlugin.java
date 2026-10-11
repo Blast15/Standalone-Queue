@@ -33,7 +33,7 @@ public final class StagingProbePlugin extends JavaPlugin implements Listener {
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!sender.hasPermission("sqprobe.admin")) return true;
-        if (args.length == 1 && java.util.Set.of("lp-seed", "lp-check").contains(args[0])
+        if (args.length == 1 && java.util.Set.of("lp-seed", "lp-check", "lp-network-seed", "lp-network-grant", "lp-network-revoke").contains(args[0])
                 && sender instanceof org.bukkit.command.ConsoleCommandSender) {
             getServer().getScheduler().runTaskAsynchronously(this, () -> RealLuckPermsChecks.run(this, args[0]));
             return true;

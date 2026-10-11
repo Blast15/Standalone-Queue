@@ -137,6 +137,11 @@ jobs:
         run: |
           python3 scripts/staging/prepare.py --version '${{ matrix.minecraft }}' --runtime '.staging-work/lp-${{ matrix.minecraft }}' --allow-unstable --accept-eula --prepare-only
           python3 scripts/staging/luckperms.py --version '${{ matrix.minecraft }}' --runtime '.staging-work/lp-${{ matrix.minecraft }}'
+      - name: Encrypted online pipeline with real LuckPerms and mock session
+        if: matrix.minecraft == '1.21.11'
+        run: |
+          python3 scripts/staging/prepare.py --version '1.21.11' --runtime '.staging-work/online-1.21.11' --accept-eula --prepare-only
+          python3 scripts/staging/online.py --version '1.21.11' --runtime '.staging-work/online-1.21.11'
       - name: Upload runtime evidence
         if: always()
         uses: actions/upload-artifact@v4

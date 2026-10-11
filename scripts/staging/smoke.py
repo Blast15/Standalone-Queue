@@ -33,6 +33,7 @@ class Runtime:
         self.raw = version in ('26.2', '26.3')
         self.raw_clients = {}
         self.packet_map = None
+        self.java_args = []
 
     def pump(self, stream, output, target, parse=False):
         for line in stream:
@@ -65,7 +66,7 @@ class Runtime:
 
     def start(self):
         index = len(self.lines)
-        self.server = subprocess.Popen([self.java, '-Xms256M', '-Xmx1G', '-jar', 'paper.jar', '--nogui'],
+        self.server = subprocess.Popen([self.java, '-Xms256M', '-Xmx1G', *self.java_args, '-jar', 'paper.jar', '--nogui'],
                                        cwd=self.path, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                        stderr=subprocess.STDOUT, text=True, bufsize=1)
         log = (self.path / 'smoke-server.log').open('a')

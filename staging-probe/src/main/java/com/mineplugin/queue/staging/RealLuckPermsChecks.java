@@ -42,6 +42,20 @@ final class RealLuckPermsChecks {
             var plugin = (StandaloneQueuePlugin) probe.getServer().getPluginManager().getPlugin("StandaloneQueue");
             var api = LuckPermsProvider.get();
             require(probe.getServer().getPluginManager().isPluginEnabled("LuckPerms"), "Actual LuckPerms plugin required");
+            if (action.startsWith("lp-network-")) {
+                if (action.equals("lp-network-seed")) {
+                    save(api, VIP, permission("queue.priority.vip", true), permission("queue.bypass", false));
+                    save(api, STAFF, permission("queue.priority.staff", true));
+                    save(api, HOLDER);
+                    save(api, id("normal"));
+                } else if (action.equals("lp-network-grant")) {
+                    save(api, VIP, permission("queue.bypass", true));
+                } else if (action.equals("lp-network-revoke")) {
+                    save(api, VIP);
+                } else throw new IllegalArgumentException(action);
+                probe.getLogger().info("SQLP " + action + " PASS");
+                return;
+            }
             if (action.equals("lp-seed")) {
                 save(api, VIP, permission("queue.priority.vip", true), permission("queue.bypass", true));
                 save(api, STAFF, permission("queue.priority.staff", true));
