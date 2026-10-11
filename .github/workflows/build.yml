@@ -133,6 +133,10 @@ jobs:
         run: |
           python3 scripts/staging/prepare.py --version '26.2' --runtime .staging-work/load-26.2 --accept-eula --prepare-only
           python3 scripts/staging/smoke.py --version '26.2' --runtime .staging-work/load-26.2 --load
+      - name: Real LuckPerms H2 and online authentication boundary
+        run: |
+          python3 scripts/staging/prepare.py --version '${{ matrix.minecraft }}' --runtime '.staging-work/lp-${{ matrix.minecraft }}' --allow-unstable --accept-eula --prepare-only
+          python3 scripts/staging/luckperms.py --version '${{ matrix.minecraft }}' --runtime '.staging-work/lp-${{ matrix.minecraft }}'
       - name: Upload runtime evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -142,6 +146,7 @@ jobs:
             .staging-work/**/smoke-*
             .staging-work/**/raw-protocol-map.json
             .staging-work/**/paper-source.json
+            .staging-work/**/luckperms-*.json
           if-no-files-found: warn
 
   release:

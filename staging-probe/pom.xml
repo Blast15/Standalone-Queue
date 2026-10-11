@@ -10,6 +10,7 @@
         <repository><id>papermc-repo</id><url>https://repo.papermc.io/repository/maven-public/</url></repository>
     </repositories>
     <dependencies>
+        <dependency><groupId>net.luckperms</groupId><artifactId>api</artifactId><version>5.4</version><scope>provided</scope></dependency>
         <dependency><groupId>com.mineplugin</groupId><artifactId>StandaloneQueue</artifactId><version>${project.version}</version><scope>provided</scope></dependency>
         <dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>1.21.11-R0.1-SNAPSHOT</version><scope>provided</scope></dependency>
     </dependencies>
