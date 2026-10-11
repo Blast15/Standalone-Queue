@@ -69,6 +69,7 @@ public record QueueSettings(
         messages.put("kick-reservation-expired", file.getString("messages.kick-reservation-expired", "Lượt giữ slot đã hết hạn. Bạn đang ở vị trí #<position>/<total>."));
         messages.put("kick-login-timeout", file.getString("messages.kick-login-timeout", "Kết nối đăng nhập đã hết hạn. Vui lòng kết nối lại."));
         messages.put("kick-admission-required", file.getString("messages.kick-admission-required", "Kết nối chưa được cấp slot hợp lệ. Vui lòng kết nối lại."));
+        messages.put("kick-paused", file.getString("messages.kick-paused", "<yellow>Hàng chờ đang tạm dừng. Vui lòng thử lại sau.</yellow>"));
         Map<String, String> admin = new HashMap<>();
         admin.put("reloading", "<gray>Đang kiểm tra cấu hình và làm mới permission...</gray>");
         admin.put("reloaded", "<green>Đã tải lại cấu hình và điều hòa hàng chờ.</green>");
@@ -91,9 +92,9 @@ public record QueueSettings(
                 file.getBoolean("queue.debug-log", false),
                 file.getBoolean("queue.anti-bot.enabled", false),
                 positive(file.getLong("queue.anti-bot.window-seconds", 10L), 10L),
-                positive(file.getInt("queue.anti-bot.max-attempts-per-ip", 20), 20),
+                Math.min(4096, positive(file.getInt("queue.anti-bot.max-attempts-per-ip", 20), 20)),
                 positive(file.getInt("queue.anti-bot.max-queued-per-ip", 5), 5),
-                positive(file.getInt("queue.anti-bot.global-attempts-per-window", 100), 100),
+                Math.min(4096, positive(file.getInt("queue.anti-bot.global-attempts-per-window", 100), 100)),
                 Math.clamp(file.getLong("permissions.resolve-timeout-ms", 1000L), 1L, 5000L),
                 Math.clamp(file.getLong("queue.in-flight-timeout-seconds", 30L), 5L, 300L),
                 file.getBoolean("logging.suppress-queue-noise", false),
@@ -110,9 +111,9 @@ public record QueueSettings(
         if (file.contains("queue.debug-log") && !file.isBoolean("queue.debug-log")) throw new IllegalArgumentException("queue.debug-log phải là boolean");
         if (file.contains("queue.anti-bot.enabled") && !file.isBoolean("queue.anti-bot.enabled")) throw new IllegalArgumentException("queue.anti-bot.enabled phải là boolean");
         number(file, "queue.anti-bot.window-seconds", 1L, Long.MAX_VALUE / 1000L);
-        number(file, "queue.anti-bot.max-attempts-per-ip", 1L, Integer.MAX_VALUE);
+        number(file, "queue.anti-bot.max-attempts-per-ip", 1L, 4096);
         number(file, "queue.anti-bot.max-queued-per-ip", 1L, Integer.MAX_VALUE);
-        number(file, "queue.anti-bot.global-attempts-per-window", 1L, Integer.MAX_VALUE);
+        number(file, "queue.anti-bot.global-attempts-per-window", 1L, 4096);
         number(file, "permissions.resolve-timeout-ms", 1L, 5000L);
         number(file, "queue.in-flight-timeout-seconds", 5L, 300L);
         if (file.contains("logging.suppress-queue-noise") && !file.isBoolean("logging.suppress-queue-noise")) throw new IllegalArgumentException("logging.suppress-queue-noise phải là boolean");
@@ -127,6 +128,7 @@ public record QueueSettings(
                 number(file, "priorities." + key + ".weight", 0, Integer.MAX_VALUE);
             }
         }
+        if (file.contains("messages.kick-paused") && !file.isString("messages.kick-paused")) throw new IllegalArgumentException("messages.kick-paused phải là chuỗi");
         if (file.contains("messages.prefix") && !file.isString("messages.prefix")) throw new IllegalArgumentException("messages.prefix phải là chuỗi");
         if (file.contains("messages.kick-in-queue") && !file.isString("messages.kick-in-queue")) throw new IllegalArgumentException("messages.kick-in-queue phải là chuỗi");
         if (file.contains("messages.kick-slot-ready") && !file.isString("messages.kick-slot-ready")) throw new IllegalArgumentException("messages.kick-slot-ready phải là chuỗi");

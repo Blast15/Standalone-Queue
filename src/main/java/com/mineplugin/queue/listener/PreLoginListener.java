@@ -36,10 +36,11 @@ public class PreLoginListener implements Listener {
                 if (decision.attemptId() != null) accepted.put(event, decision.attemptId());
                 return;
             }
-            case RATE_LIMITED -> {
+            case RATE_LIMITED, RATE_LIMITED_UUID, RATE_LIMITED_IP, RATE_LIMITED_GLOBAL, QUEUE_IP_QUOTA -> {
                 result = AsyncPlayerPreLoginEvent.Result.KICK_OTHER;
                 message = config.formatKickRateLimited();
             }
+            case PAUSED -> message = config.formatKickPaused();
             case QUEUE_FULL -> message = config.formatKickQueueFull(queueManager.getQueueSize());
             case EXPIRED_AND_REQUEUED -> message = config.formatKickReservationExpired(decision.position(),
                     queueManager.getOnlinePlayerCount(), queueManager.getEffectiveMaxPlayers());

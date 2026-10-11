@@ -37,6 +37,20 @@ public class QueueManager {
     private final AtomicLong timeoutCount = new AtomicLong();
     private final AtomicLong reloadRequest = new AtomicLong();
     private volatile boolean stopped;
+    private volatile boolean paused;
+    private final EnumMap<LoginResultType, java.util.concurrent.atomic.LongAdder> decisions = new EnumMap<>(LoginResultType.class);
+    private final java.util.concurrent.atomic.LongAdder preLoginNanos = new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder preLoginCalls = new java.util.concurrent.atomic.LongAdder();
+    private final AtomicLong maxPreLoginNanos = new AtomicLong();
+    private final AtomicLong failedLogins = new AtomicLong();
+    private final AtomicLong cancelledPreLogins = new AtomicLong();
+    private final AtomicLong successfulJoins = new AtomicLong();
+    private record AdmissionInfo(String name, int priority) {}
+    private final Map<UUID, AdmissionInfo> admissionNames = new HashMap<>();
+    private final Set<UUID> reservedAdmissions = new HashSet<>();
+    private final AdmissionHistory history = new AdmissionHistory();
+    private long historyCachedAt = Long.MIN_VALUE;
+    private AdmissionHistory.Snapshot historyCache = new AdmissionHistory.Snapshot(0, 0, 0);
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
     // Map lưu thông tin người chơi trong hàng chờ: UUID -> QueuedPlayer
@@ -52,6 +66,7 @@ public class QueueManager {
     private final Map<UUID, Long> rateLimitMap = new LinkedHashMap<>(256, 0.75f, true);
     private final Map<String, ArrayDeque<Long>> ipAttemptWindows = new HashMap<>();
     private final ArrayDeque<Long> globalAttemptWindow = new ArrayDeque<>();
+    private final ArrayDeque<Long> protectedAttemptWindow = new ArrayDeque<>();
     private record QueueDisconnect(String name, String ip, String reason, long recordedAt) {}
     private final ArrayDeque<QueueDisconnect> queueDisconnects = new ArrayDeque<>();
 
@@ -76,6 +91,7 @@ public class QueueManager {
         this.permissionResolver = Objects.requireNonNull(permissionResolver, "permissionResolver");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.capacitySource = Objects.requireNonNull(capacitySource, "capacitySource");
+        for (LoginResultType type : LoginResultType.values()) decisions.put(type, new java.util.concurrent.atomic.LongAdder());
     }
 
     /**
@@ -86,6 +102,7 @@ public class QueueManager {
         ALLOWED_RESERVED,     // Đã có slot giữ chỗ sẵn, vào thành công
         ALLOWED_BYPASS,       // Có quyền bypass hàng chờ
         RATE_LIMITED,         // Kết nối quá nhanh (dưới rate limit)
+        RATE_LIMITED_UUID, RATE_LIMITED_IP, RATE_LIMITED_GLOBAL, QUEUE_IP_QUOTA, PAUSED,
         QUEUE_FULL,           // Hàng chờ đã vượt quá sức chứa tối đa
         EXPIRED_AND_REQUEUED, // Lease hết hạn, hiển thị lượt mới
         IN_QUEUE              // Đang trong hàng chờ (bị kick kèm vị trí)
@@ -132,12 +149,14 @@ public class QueueManager {
         });
     }
 
-    private LoginDecision admit(UUID uuid, String ip, long now, LoginResultType type) {
+    private LoginDecision admit(UUID uuid, String name, String ip, long now, int priority, LoginResultType type) {
         long duration = config.getInFlightTimeoutMs();
         UUID token = UUID.randomUUID();
         long deadline = duration > Long.MAX_VALUE - now ? Long.MAX_VALUE : now + duration;
+        admissionNames.put(uuid, new AdmissionInfo(name, Math.max(0, priority)));
         inFlightLogins.put(uuid, new LoginAttempt(token, uuid, ip, now, deadline,
                 LoginAttempt.Phase.PRELOGIN_ACCEPTED, null, false, config.isEnabled()));
+        if (type == LoginResultType.ALLOWED_RESERVED) reservedAdmissions.add(uuid);
         trace(inFlightLogins.get(uuid), "pre-login-accepted");
         return new LoginDecision(type, null, token);
     }
@@ -168,11 +187,24 @@ public class QueueManager {
      * Phương thức cốt lõi xử lý xếp hàng, giữ chỗ, kiểm tra timeout và cấp phép vào server.
      */
     public LoginDecision handlePreLogin(UUID uuid, String name, String ipAddress) {
+        long started = System.nanoTime();
+        try {
+            LoginDecision decision = handlePreLoginInternal(uuid, name, ipAddress);
+            decisions.get(decision.type()).increment();
+            return decision;
+        } finally {
+            long duration = Math.max(0, System.nanoTime() - started);
+            preLoginCalls.increment(); preLoginNanos.add(duration);
+            maxPreLoginNanos.accumulateAndGet(duration, Math::max);
+        }
+    }
+
+    private LoginDecision handlePreLoginInternal(UUID uuid, String name, String ipAddress) {
         Objects.requireNonNull(uuid, "uuid");
         long timeout;
         QueueSettings generation;
         synchronized (config) {
-            LoginDecision early = checkAttempt(uuid, ipAddress, clock.millis());
+            LoginDecision early = checkAttempt(uuid, name, ipAddress, clock.millis());
             if (early != null) return early;
             timeout = config.getPermissionResolveTimeoutMs();
             generation = config.snapshot();
@@ -201,20 +233,17 @@ public class QueueManager {
         return new LoginDecision(LoginResultType.RATE_LIMITED, null);
     }
 
-    private LoginDecision checkAttempt(UUID uuid, String ipAddress, long now) {
+    private LoginDecision checkAttempt(UUID uuid, String name, String ipAddress, long now) {
         if (stopped) return new LoginDecision(LoginResultType.RATE_LIMITED, null);
-        if (config.isAntiBotEnabled() && !acceptAntiBotAttempt(ipAddress, now)) {
-            return new LoginDecision(LoginResultType.RATE_LIMITED, null);
-        }
 
         // 1. Kiểm tra Rate Limit chống spam kết nối
         synchronized (rateLimitMap) {
             Long lastAttempt = rateLimitMap.get(uuid);
-            if (lastAttempt != null && (now - lastAttempt) < config.getRateLimitMs()) {
-                return new LoginDecision(LoginResultType.RATE_LIMITED, null);
+            if (lastAttempt != null && elapsed(now, lastAttempt) < config.getRateLimitMs()) {
+                return new LoginDecision(LoginResultType.RATE_LIMITED_UUID, null);
             }
             if (lastAttempt == null && rateLimitMap.size() >= MAX_TRACKED_IDENTITIES) {
-                rateLimitMap.entrySet().removeIf(entry -> elapsed(now, entry.getValue()) > 60_000L);
+                rateLimitMap.entrySet().removeIf(entry -> elapsed(now, entry.getValue()) >= Math.max(60_000L, config.getRateLimitMs()));
                 if (rateLimitMap.size() >= MAX_TRACKED_IDENTITIES) {
                     rateLimitMap.remove(rateLimitMap.keySet().iterator().next());
                 }
@@ -222,10 +251,15 @@ public class QueueManager {
             rateLimitMap.put(uuid, now);
         }
 
+        if (config.isAntiBotEnabled()) {
+            LoginResultType rejected = acceptAntiBotAttempt(uuid, ipAddress, now);
+            if (rejected != null) return new LoginDecision(rejected, null);
+        }
+
         // 2. Nếu plugin bị tắt, cho phép vào thẳng
         if (!config.isEnabled()) {
             // Still account for handshakes if reload enables queuing before they join.
-            return decide(uuid, "", ipAddress, PermissionSnapshot.none(now));
+            return decide(uuid, name, ipAddress, PermissionSnapshot.none(now));
         }
 
         return null;
@@ -242,11 +276,12 @@ public class QueueManager {
             if (inFlightLogins.containsKey(uuid) || inFlightLogins.size() >= MAX_TRACKED_IDENTITIES) {
                 return new LoginDecision(LoginResultType.RATE_LIMITED, null);
             }
-            if (!config.isEnabled()) return admit(uuid, ipAddress, now, LoginResultType.ALLOWED_DIRECT);
+            if (!config.isEnabled()) return admit(uuid, name, ipAddress, now, rights.priorityWeight(), LoginResultType.ALLOWED_DIRECT);
+            if (rights.bypass() && paused) return new LoginDecision(LoginResultType.PAUSED, null);
             if (rights.bypass()) {
                 queueMap.remove(uuid);
                 queueOrderDirty = true;
-                LoginDecision decision = admit(uuid, ipAddress, now, LoginResultType.ALLOWED_BYPASS);
+                LoginDecision decision = admit(uuid, name, ipAddress, now, rights.priorityWeight(), LoginResultType.ALLOWED_BYPASS);
                 processReservationsInternal(Math.max(0, getEffectiveMaxPlayers() - getActiveOccupiedSlots()), now);
                 return decision;
             }
@@ -260,7 +295,7 @@ public class QueueManager {
             if (config.isAntiBotEnabled() && existingPlayer == null
                     && config.getAntiBotMaxQueuedPerIp() > 0
                     && countQueuedFromIp(ipAddress) >= config.getAntiBotMaxQueuedPerIp()) {
-                return new LoginDecision(LoginResultType.RATE_LIMITED, null);
+                return new LoginDecision(LoginResultType.QUEUE_IP_QUOTA, null);
             }
 
             // 4. Kiểm tra xem người chơi có Reservation hợp lệ không
@@ -268,16 +303,21 @@ public class QueueManager {
                 // Người chơi đang giữ slot hợp lệ và kết nối lại -> Cho phép vào!
                 queueMap.remove(uuid);
                 queueOrderDirty = true;
-                LoginDecision decision = admit(uuid, ipAddress, now, LoginResultType.ALLOWED_RESERVED);
+                LoginDecision decision = admit(uuid, name, ipAddress, now, rights.priorityWeight(), LoginResultType.ALLOWED_RESERVED);
                 if (config.isDebugLog() && plugin != null) {
                     plugin.getLogger().info("[Queue] Người chơi " + name + " đã kích hoạt slot giữ chỗ thành công và vào game.");
                 }
                 return decision;
             }
 
+            if (paused) {
+                if (existingPlayer != null) existingPlayer.recordPing(now);
+                return new LoginDecision(LoginResultType.PAUSED, null);
+            }
+
             // 5. Nếu server còn slot trống VÀ hàng chờ đang trống: Cho phép vào thẳng
             if (freeSlots > 0 && queueMap.isEmpty()) {
-                return admit(uuid, ipAddress, now, LoginResultType.ALLOWED_DIRECT);
+                return admit(uuid, name, ipAddress, now, rights.priorityWeight(), LoginResultType.ALLOWED_DIRECT);
             }
 
             // 6. Trường hợp server đã đầy hoặc có hàng chờ:
@@ -314,7 +354,7 @@ public class QueueManager {
             if (queuedPlayer.hasActiveReservation(now) && (maxCap - getActiveOccupiedSlots()) > 0) {
                 queueMap.remove(uuid);
                 queueOrderDirty = true;
-                return admit(uuid, ipAddress, now, LoginResultType.ALLOWED_RESERVED);
+                return admit(uuid, name, ipAddress, now, rights.priorityWeight(), LoginResultType.ALLOWED_RESERVED);
             }
 
             // 8. Tính toán vị trí hiện tại trong hàng chờ
@@ -332,7 +372,7 @@ public class QueueManager {
                     sortedQueue.size(),
                     remainingSec,
                     queuedPlayer.hasActiveReservation(now) && freeSlots > 0,
-                    queuedPlayer.getPriority()
+                    queuedPlayer.getPriority(), estimateWait(position, now)
             );
 
             return new LoginDecision(queuedPlayer.consumeReservationExpiredNotice()
@@ -343,23 +383,35 @@ public class QueueManager {
         }
     }
 
-    private boolean acceptAntiBotAttempt(String ipAddress, long now) {
+    private LoginResultType acceptAntiBotAttempt(UUID uuid, String ipAddress, long now) {
         String ip = (ipAddress == null || ipAddress.isBlank()) ? "unknown" : ipAddress;
-        synchronized (globalAttemptWindow) {
-            long cutoff = now - config.getAntiBotWindowMs();
-            while (!globalAttemptWindow.isEmpty() && globalAttemptWindow.peekFirst() <= cutoff) globalAttemptWindow.removeFirst();
-            int globalLimit = config.getAntiBotGlobalAttemptsPerWindow();
-            if (globalLimit > 0 && globalAttemptWindow.size() >= globalLimit) return false;
-            if (ipAttemptWindows.size() >= 4096 && !ipAttemptWindows.containsKey(ip)) return false;
-            ArrayDeque<Long> attempts = ipAttemptWindows.computeIfAbsent(ip, ignored -> new ArrayDeque<>());
-            while (!attempts.isEmpty() && attempts.peekFirst() <= cutoff) attempts.removeFirst();
-            int ipLimit = config.getAntiBotMaxAttemptsPerIp();
-            if (ipLimit > 0 && attempts.size() >= ipLimit) return false;
-            attempts.addLast(now);
-            globalAttemptWindow.addLast(now);
-            if (ipAttemptWindows.size() > 4096) ipAttemptWindows.entrySet().removeIf(entry -> entry.getValue().isEmpty());
-            return true;
-        }
+        // Config -> queue -> anti-bot: only an exact live UUID/IP lease gets global headroom.
+        lock.readLock().lock();
+        try {
+            QueuedPlayer owner = queueMap.get(uuid);
+            boolean leaseOwner = owner != null && owner.hasActiveReservation(now)
+                    && Objects.equals(owner.getIpAddress(), ipAddress);
+            synchronized (globalAttemptWindow) {
+                long cutoff = now - config.getAntiBotWindowMs();
+                while (!globalAttemptWindow.isEmpty() && globalAttemptWindow.peekFirst() <= cutoff) globalAttemptWindow.removeFirst();
+                if (ipAttemptWindows.size() >= MAX_TRACKED_IDENTITIES && !ipAttemptWindows.containsKey(ip)) {
+                    ipAttemptWindows.entrySet().removeIf(e -> e.getValue().isEmpty() || e.getValue().peekLast() <= cutoff);
+                    if (ipAttemptWindows.size() >= MAX_TRACKED_IDENTITIES) return LoginResultType.RATE_LIMITED_IP;
+                }
+                ArrayDeque<Long> attempts = ipAttemptWindows.computeIfAbsent(ip, ignored -> new ArrayDeque<>());
+                while (!attempts.isEmpty() && attempts.peekFirst() <= cutoff) attempts.removeFirst();
+                // Reject one noisy IP before charging global capacity shared with other IPs.
+                if (attempts.size() >= Math.min(MAX_TRACKED_IDENTITIES, config.getAntiBotMaxAttemptsPerIp()))
+                    return LoginResultType.RATE_LIMITED_IP;
+                while (!protectedAttemptWindow.isEmpty() && protectedAttemptWindow.peekFirst() <= cutoff) protectedAttemptWindow.removeFirst();
+                ArrayDeque<Long> budget = leaseOwner ? protectedAttemptWindow : globalAttemptWindow;
+                if (budget.size() >= Math.min(MAX_TRACKED_IDENTITIES, config.getAntiBotGlobalAttemptsPerWindow()))
+                    return LoginResultType.RATE_LIMITED_GLOBAL;
+                attempts.addLast(now);
+                budget.addLast(now);
+                return null;
+            }
+        } finally { lock.readLock().unlock(); }
     }
 
     private int countQueuedFromIp(String ipAddress) {
@@ -388,6 +440,7 @@ public class QueueManager {
 
     private void processReservationsInternal(List<QueuedPlayer> sorted, int freeSlots, long now) {
         int available = freeSlots - reconcileReservationsInternal(sorted, freeSlots, now);
+        if (paused) return;
         for (QueuedPlayer player : sorted) {
             if (available == 0) break;
             if (!player.hasActiveReservation(now)) {
@@ -440,11 +493,12 @@ public class QueueManager {
         // Dọn dẹp rateLimitMap (xóa các bản ghi quá 60s để tránh rò rỉ bộ nhớ)
         long now = clock.millis();
         synchronized (rateLimitMap) {
-            rateLimitMap.entrySet().removeIf(entry -> elapsed(now, entry.getValue()) > 60_000L);
+            rateLimitMap.entrySet().removeIf(entry -> elapsed(now, entry.getValue()) >= Math.max(60_000L, config.getRateLimitMs()));
         }
         synchronized (globalAttemptWindow) {
             long cutoff = now - config.getAntiBotWindowMs();
             while (!globalAttemptWindow.isEmpty() && globalAttemptWindow.peekFirst() <= cutoff) globalAttemptWindow.removeFirst();
+            while (!protectedAttemptWindow.isEmpty() && protectedAttemptWindow.peekFirst() <= cutoff) protectedAttemptWindow.removeFirst();
             ipAttemptWindows.values().forEach(attempts -> attempts.removeIf(timestamp -> timestamp <= cutoff));
             ipAttemptWindows.entrySet().removeIf(entry -> entry.getValue().isEmpty());
         }
@@ -496,6 +550,7 @@ public class QueueManager {
             LoginAttempt next = attempt.transition(allowed ? LoginAttempt.Phase.LOGIN_ACCEPTED
                     : LoginAttempt.Phase.FAILED, attempt.playerIdentity());
             inFlightLogins.put(uuid, next);
+            if (!allowed) { failedLogins.incrementAndGet(); reservedAdmissions.remove(uuid); }
             trace(next, allowed ? "login-accepted" : "login-failed");
         } finally {
             lock.writeLock().unlock();
@@ -509,7 +564,7 @@ public class QueueManager {
             LoginAttempt attempt = inFlightLogins.get(uuid);
             boolean removed = attempt != null && attempt.id().equals(token) && attempt.playerIdentity() == null
                     && inFlightLogins.remove(uuid, attempt);
-            if (removed) trace(attempt, "pre-login-cancelled");
+            if (removed) { cancelledPreLogins.incrementAndGet(); reservedAdmissions.remove(uuid); admissionNames.remove(uuid); trace(attempt, "pre-login-cancelled"); }
             return removed;
         } finally {
             lock.writeLock().unlock();
@@ -524,6 +579,10 @@ public class QueueManager {
             if (attempt == null || attempt.playerIdentity() != player
                     || attempt.phase() != LoginAttempt.Phase.LOGIN_ACCEPTED) return;
             inFlightLogins.put(player.getUniqueId(), attempt.transition(LoginAttempt.Phase.JOINED, player));
+            successfulJoins.incrementAndGet();
+            if (reservedAdmissions.remove(player.getUniqueId())) {
+                history.record(clock.millis());
+            }
             trace(inFlightLogins.get(player.getUniqueId()), "join");
             queueMap.remove(player.getUniqueId());
             queueOrderDirty = true;
@@ -559,6 +618,8 @@ public class QueueManager {
             LoginAttempt attempt = inFlightLogins.get(uuid);
             if (attempt != null && Objects.equals(ip, attempt.ipAddress())) {
                 inFlightLogins.remove(uuid, attempt);
+                reservedAdmissions.remove(uuid);
+                admissionNames.remove(uuid);
                 trace(attempt, "connection-close");
             }
         } finally {
@@ -585,6 +646,7 @@ public class QueueManager {
             LoginAttempt attempt = inFlightLogins.get(uuid);
             if (attempt == null || !attempt.id().equals(token) || !attempt.occupiesSlot()) return false;
             inFlightLogins.put(uuid, attempt.transition(LoginAttempt.Phase.FAILED, attempt.playerIdentity()));
+            failedLogins.incrementAndGet(); reservedAdmissions.remove(uuid);
             trace(inFlightLogins.get(uuid), "released-failure");
             return true;
         } finally {
@@ -629,6 +691,141 @@ public class QueueManager {
             return queueDisconnects.stream().anyMatch(item -> Objects.equals(name, item.name())
                     && Objects.equals(ip, item.ip()) && Objects.equals(reason, item.reason()));
         }
+    }
+
+    private AdmissionHistory.Snapshot cachedHistory(long now) {
+        if (historyCachedAt == Long.MIN_VALUE || now < historyCachedAt || now - historyCachedAt >= 1000) {
+            historyCache = history.snapshot(now); historyCachedAt = now;
+        }
+        return historyCache;
+    }
+
+    private String estimateWait(int position, long now) {
+        double interval = cachedHistory(now).secondsPerJoin();
+        if (paused || interval <= 0 || !Double.isFinite(interval)) return "Đang cập nhật";
+        // Rank already includes queued leases; redeemed but unfinished admissions are additional work.
+        int work = position + reservedAdmissions.size();
+        long low = (long) Math.ceil(work * interval * .5);
+        long high = (long) Math.ceil(work * interval * 1.5);
+        return "Ước tính " + low + "–" + high + " giây";
+    }
+
+    public record Statistics(Map<LoginResultType, Long> decisions, long successfulJoins, long timeouts, long failedLogins, long cancelledPreLogins,
+                             int online, int capacity, int queued, int leases, int inFlight, boolean paused,
+                             long joins5m, long joins15m, double averagePreLoginMs, double maxPreLoginMs,
+                             int trackedUuids, int trackedIps) {}
+
+    public Statistics getStatistics() {
+        synchronized (config) {
+            lock.writeLock().lock();
+            try {
+                var counts = new EnumMap<LoginResultType, Long>(LoginResultType.class);
+                decisions.forEach((type, count) -> counts.put(type, count.sum()));
+                var recent = cachedHistory(clock.millis());
+                int uuids, ips;
+                synchronized (rateLimitMap) { uuids = rateLimitMap.size(); }
+                synchronized (globalAttemptWindow) { ips = ipAttemptWindows.size(); }
+                long calls = preLoginCalls.sum();
+                return new Statistics(Map.copyOf(counts), successfulJoins.get(), timeoutCount.get(), failedLogins.get(), cancelledPreLogins.get(), onlinePlayers.get(),
+                        getEffectiveMaxPlayers(), queueMap.size(), (int)queueMap.values().stream()
+                        .filter(p -> p.hasActiveReservation(clock.millis())).count(), getInFlightCount(), paused,
+                        recent.joins5m(), recent.joins15m(), calls == 0 ? 0 : preLoginNanos.sum() / 1e6 / calls,
+                        maxPreLoginNanos.get() / 1e6, uuids, ips);
+            } finally { lock.writeLock().unlock(); }
+        }
+    }
+
+    /** Plain Prometheus text, generated after the bounded snapshot releases the queue lock. No identity labels. */
+    public String getMetricsText() {
+        Statistics stats = getStatistics();
+        StringBuilder output = new StringBuilder();
+        stats.decisions().entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(e -> output.append(
+                "standalone_queue_decisions_total{reason=\"").append(e.getKey()).append("\"} ").append(e.getValue()).append('\n'));
+        output.append("standalone_queue_successful_joins_total ").append(stats.successfulJoins()).append('\n');
+        output.append("standalone_queue_timeouts_total ").append(stats.timeouts()).append('\n');
+        output.append("standalone_queue_failed_logins_total ").append(stats.failedLogins()).append('\n');
+        output.append("standalone_queue_cancelled_prelogins_total ").append(stats.cancelledPreLogins()).append('\n');
+        output.append("standalone_queue_online ").append(stats.online()).append('\n');
+        output.append("standalone_queue_capacity ").append(stats.capacity()).append('\n');
+        output.append("standalone_queue_waiting ").append(stats.queued()).append('\n');
+        output.append("standalone_queue_leases ").append(stats.leases()).append('\n');
+        output.append("standalone_queue_in_flight ").append(stats.inFlight()).append('\n');
+        output.append("standalone_queue_paused ").append(stats.paused() ? 1 : 0).append('\n');
+        output.append("standalone_queue_joins_5m ").append(stats.joins5m()).append('\n');
+        output.append("standalone_queue_joins_15m ").append(stats.joins15m()).append('\n');
+        output.append("standalone_queue_prelogin_average_ms ").append(stats.averagePreLoginMs()).append('\n');
+        output.append("standalone_queue_prelogin_max_ms ").append(stats.maxPreLoginMs()).append('\n');
+        return output.toString();
+    }
+
+    public boolean isPaused() { return paused; }
+    public void setPaused(boolean value) {
+        synchronized (config) {
+            lock.writeLock().lock();
+            try {
+                paused = value;
+                long now = clock.millis();
+                expireQueueEntries(now);
+                processReservationsInternal(Math.max(0, getEffectiveMaxPlayers() - getActiveOccupiedSlots()), now);
+            } finally { lock.writeLock().unlock(); }
+        }
+    }
+
+    public record Inspection(UUID uuid, String name, int priority, int position, long ttlSeconds,
+                             long leaseId, long leaseRemainingSeconds, String phase) {}
+    public Inspection inspect(String name) {
+        synchronized (config) {
+            lock.writeLock().lock();
+            try {
+                var sorted = getSortedQueueInternal(); long now = clock.millis();
+                for (int i = 0; i < sorted.size(); i++) {
+                    var p = sorted.get(i);
+                    if (p.getUsername().equalsIgnoreCase(name) || p.getUuid().toString().equalsIgnoreCase(name)) {
+                        var attempt = inFlightLogins.get(p.getUuid());
+                        return new Inspection(p.getUuid(), p.getUsername(), p.getPriority(), i + 1,
+                                p.getRemainingKeepAliveMs(config.getKeepAliveMs(), now) / 1000,
+                                p.hasActiveReservation(now) ? p.getReservationId() : 0,
+                                Math.max(0, p.getSlotReservedUntilTimestamp() - now) / 1000,
+                                attempt == null ? "WAITING" : attempt.phase().name());
+                    }
+                }
+                for (var attempt : inFlightLogins.values()) {
+                    var identity = admissionNames.get(attempt.playerUuid());
+                    String playerName = identity == null ? "" : identity.name();
+                    if (playerName.equalsIgnoreCase(name) || attempt.playerUuid().toString().equalsIgnoreCase(name))
+                        return new Inspection(attempt.playerUuid(), playerName, identity == null ? 0 : identity.priority(), 0, 0, 0, 0, attempt.phase().name());
+                }
+                return null;
+            } finally { lock.writeLock().unlock(); }
+        }
+    }
+
+    /** Absolute one-based position; never crosses a tier or any lease in the affected interval. */
+    public boolean move(String name, int position) {
+        lock.writeLock().lock();
+        try {
+            var sorted = new ArrayList<>(getSortedQueueInternal());
+            int source = -1;
+            for (int i = 0; i < sorted.size(); i++) if (sorted.get(i).getUsername().equalsIgnoreCase(name)) source = i;
+            if (source < 0 || position < 1 || position > sorted.size()) return false;
+            var player = sorted.get(source); int target = position - 1;
+            for (int i = Math.min(source, target); i <= Math.max(source, target); i++) {
+                var peer = sorted.get(i);
+                if (peer.getPriority() != player.getPriority() || peer.getReservationId() != 0
+                        || inFlightLogins.containsKey(peer.getUuid())) return false;
+            }
+            sorted.remove(source); sorted.add(target, player);
+            // ponytail: O(n) admin-only; fresh monotonic sequences keep later new arrivals behind peers.
+            for (var peer : sorted) peer.refreshSequence();
+            queueOrderDirty = true;
+            return true;
+        } finally { lock.writeLock().unlock(); }
+    }
+
+    public void audit(String actor, String action, String details) {
+        var logger = plugin == null ? java.util.logging.Logger.getLogger("StandaloneQueue") : plugin.getLogger();
+        logger.info("[QueueAudit] actor=" + String.valueOf(actor).replaceAll("[\\r\\n]", "_") + " action=" + action
+                + " details=" + details.replaceAll("[\\r\\n]", "_"));
     }
 
     private record ReloadTarget(UUID uuid, String name, QueuedPlayer identity) {}
@@ -682,6 +879,7 @@ public class QueueManager {
                     synchronized (rateLimitMap) { rateLimitMap.clear(); }
                     synchronized (globalAttemptWindow) {
                         globalAttemptWindow.clear();
+                        protectedAttemptWindow.clear();
                         ipAttemptWindows.clear();
                     }
                 } finally {
@@ -800,12 +998,15 @@ public class QueueManager {
             queueMap.clear();
             queueOrderDirty = true;
             inFlightLogins.clear();
+            reservedAdmissions.clear();
+            admissionNames.clear();
             synchronized (queueDisconnects) { queueDisconnects.clear(); }
             synchronized (rateLimitMap) {
                 rateLimitMap.clear();
             }
             synchronized (globalAttemptWindow) {
                 globalAttemptWindow.clear();
+                protectedAttemptWindow.clear();
                 ipAttemptWindows.clear();
             }
         } finally {

@@ -10,7 +10,8 @@ public record QueuePosition(
         int total,
         long remainingKeepAliveSeconds,
         boolean isSlotReady,
-        int priority
+        int priority,
+        String estimatedWait
 ) {
 
     /**
@@ -30,21 +31,11 @@ public record QueuePosition(
         }
     }
 
-    /**
-     * Ước tính thời gian chờ dựa trên vị trí (giả định trung bình 15-30s mỗi người).
-     */
-    public String getFormattedEta() {
-        if (isSlotReady || position <= 1) {
-            return "Ngay lập tức / Tiếp theo";
-        }
-        long estimatedSeconds = (long) position * 20L;
-        long minutes = estimatedSeconds / 60;
-        long seconds = estimatedSeconds % 60;
+    public QueuePosition(int position, int total, long remainingKeepAliveSeconds, boolean isSlotReady, int priority) {
+        this(position, total, remainingKeepAliveSeconds, isSlotReady, priority, "Đang cập nhật");
+    }
 
-        if (minutes > 0) {
-            return String.format("~%d phút %d giây", minutes, seconds);
-        } else {
-            return String.format("~%d giây", seconds);
-        }
+    public String getFormattedEta() {
+        return isSlotReady ? "Ngay lập tức / Tiếp theo" : estimatedWait;
     }
 }

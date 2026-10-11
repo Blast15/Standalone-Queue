@@ -1,5 +1,5 @@
 name: StandaloneQueue
-version: 1.1.0-SNAPSHOT
+version: 1.2.0-SNAPSHOT
 softdepend: [LuckPerms]
 main: com.mineplugin.queue.StandaloneQueuePlugin
 api-version: '1.21'
@@ -9,13 +9,21 @@ description: Plugin hang cho tu dong khong can proxy cho may chu Paper
 commands:
   queue:
     description: Cac lenh quan tri he thong hang cho
-    permission: queue.admin
-    usage: /<command> [reload|status|list|clear|kick|antibot]
+    usage: /<command> [reload|status|stats|inspect|pause|resume|move|list|clear|kick|antibot]
     aliases: [sq, hangcho]
 
 permissions:
   queue.admin:
     description: Toan quyen quan tri hang cho
+    default: op
+  queue.inspect:
+    description: Xem chi tiet hang cho, khong hien IP
+    default: op
+  queue.stats:
+    description: Xem thong ke va trang thai
+    default: op
+  queue.manage:
+    description: Pause, resume, move, clear va kick
     default: op
   queue.bypass:
     description: Bo qua hang cho va vao thang may chu ngay ca khi full

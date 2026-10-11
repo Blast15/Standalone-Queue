@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0-SNAPSHOT — phase 3 (unreleased)
+
+- SQ-010: distinct UUID/IP/global/quota/full reasons and counters; IP/UUID rejects do not spend global budget; exact live UUID/IP lease owners use a separately bounded protected budget. Preserve long UUID cooldowns during cleanup; hard 4096 tracking/attempt ceilings and NAT regression.
+- SQ-011: rolling successful queued JOIN history and EWMA approximate ETA range; fixed-size history/cache, no position × 20 s guess, updating fallback with low/stale data.
+- SQ-013: immutable stats and identity-free Prometheus text API, JOIN/login failure/cancellation/timeout counters and pre-login average/max latency; no HTTP listener.
+- SQ-015: granular inspect/stats/manage permissions, safe pause/resume/same-tier move, private inspect, filtered help/tab completion and persistent-visible admin audit.
+- Java/Maven/Gradle/probe metadata 1.2.0-SNAPSHOT; phase 3 load harness, regression and migration/staging records.
+
+See [migration](docs/releases/1.2.0.md), [staging G3](docs/testing/phase-3-staging.md) and [local comparison](docs/testing/phase-3-benchmark.md). G3 remains pending real staging data and review.
+
 ## 1.1.0-SNAPSHOT — phase 2 (unreleased)
 
 ### Fixed
