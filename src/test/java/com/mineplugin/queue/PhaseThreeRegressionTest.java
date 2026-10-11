@@ -53,6 +53,23 @@ class PhaseThreeRegressionTest {
         manager.onPlayerQuit(player); manager.onConnectionClose(uuid, "192.0.2.1"); online.set(0);
     }
 
+
+    @Test void expiryCountersAndCompletedQueueWaitHistogramAreMeasuredOnce() {
+        start(); UUID a = UUID.randomUUID(); attempt(a, "A", "192.0.2.1");
+        clock.advance(30_000); online.set(0); manager.refreshServerCapacity(); manager.cleanupTick();
+        join(a, "A");
+        var stats = manager.getStatistics();
+        assertEquals(List.of(1L, 1L, 1L, 1L, 1L), stats.waitBuckets());
+        assertEquals(30, stats.waitSecondsSum());
+        assertTrue(manager.getMetricsText().contains("standalone_queue_wait_seconds_count 1"));
+        online.set(1); manager.refreshServerCapacity(); attempt("B", "b");
+        online.set(0); manager.refreshServerCapacity(); manager.cleanupTick();
+        clock.advance(60_000); manager.cleanupTick();
+        assertEquals(1, manager.getStatistics().reservationExpired());
+        clock.advance(300_000); manager.cleanupTick(); manager.cleanupTick();
+        assertEquals(1, manager.getStatistics().heartbeatExpired());
+    }
+
     @Test void uuidIpGlobalQuotaAndFullHaveSeparateCounters() {
         antiBot(2, 3, 1); yaml.set("queue.rate-limit-seconds", 2); start();
         UUID a = UUID.randomUUID(); assertEquals(IN_QUEUE, attempt(a, "A", "a").type());

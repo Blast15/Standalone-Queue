@@ -193,6 +193,7 @@ public class QueueCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendStatistics(CommandSender sender) {
+        sender.sendMessage(Component.text("Persistence: " + (plugin == null ? "disabled" : plugin.getPersistenceStatus())));
         var stats = queueManager.getStatistics();
         sender.sendMessage(Component.text("paused=" + stats.paused() + " online=" + stats.online() + "/" + stats.capacity()
                 + " queue=" + stats.queued() + " leases=" + stats.leases() + " inFlight=" + stats.inFlight()
@@ -201,6 +202,8 @@ public class QueueCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(Component.text("Queue JOIN 5m=" + stats.joins5m() + " 15m=" + stats.joins15m()
                 + " preLogin avg/max ms=" + String.format(Locale.ROOT, "%.2f/%.2f", stats.averagePreLoginMs(), stats.maxPreLoginMs())
                 + " tracked UUID/IP=" + stats.trackedUuids() + "/" + stats.trackedIps()));
+        sender.sendMessage(Component.text("Lease expired=" + stats.reservationExpired() + " heartbeat expired=" + stats.heartbeatExpired()
+                + " permission failures=" + stats.permissionFailures() + " queued wait samples=" + stats.waitBuckets().getLast()));
         stats.decisions().entrySet().stream().sorted(java.util.Map.Entry.comparingByKey()).forEach(e ->
                 sender.sendMessage(Component.text(e.getKey() + "=" + e.getValue())));
     }

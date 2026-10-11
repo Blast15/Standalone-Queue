@@ -20,6 +20,8 @@ public record QueueSettings(
         long permissionResolveTimeoutMs,
         long inFlightTimeoutSeconds,
         boolean suppressQueueNoise,
+        boolean persistenceEnabled,
+        long persistenceFlushSeconds,
         Map<String, Integer> permissionPriorities,
         Map<String, String> messages,
         Map<String, String> adminMessages) {
@@ -98,11 +100,16 @@ public record QueueSettings(
                 Math.clamp(file.getLong("permissions.resolve-timeout-ms", 1000L), 1L, 5000L),
                 Math.clamp(file.getLong("queue.in-flight-timeout-seconds", 30L), 5L, 300L),
                 file.getBoolean("logging.suppress-queue-noise", false),
+                file.getBoolean("persistence.enabled", false),
+                Math.clamp(file.getLong("persistence.flush-interval-seconds", 10L), 1L, 300L),
                 priorities, messages, admin);
     }
 
     private static void validate(FileConfiguration file) {
         if (file.contains("queue.enabled") && !file.isBoolean("queue.enabled")) throw new IllegalArgumentException("queue.enabled phải là boolean");
+        if (file.contains("persistence.enabled") && !file.isBoolean("persistence.enabled")) throw new IllegalArgumentException("persistence.enabled phải là boolean");
+        number(file, "persistence.flush-interval-seconds", 1L, 300L);
+        if (file.getBoolean("persistence.enabled", false) && file.getInt("queue.max-queue-size", 500) > 100_000) throw new IllegalArgumentException("Persistence hỗ trợ tối đa 100000 lượt");
         number(file, "queue.max-players-override", -1L, Integer.MAX_VALUE);
         number(file, "queue.keep-alive-seconds", 1L, Long.MAX_VALUE / 1000L);
         number(file, "queue.slot-reservation-seconds", 1L, Long.MAX_VALUE / 1000L);
@@ -118,7 +125,7 @@ public record QueueSettings(
         number(file, "queue.in-flight-timeout-seconds", 5L, 300L);
         if (file.contains("logging.suppress-queue-noise") && !file.isBoolean("logging.suppress-queue-noise")) throw new IllegalArgumentException("logging.suppress-queue-noise phải là boolean");
         if (file.getLong("queue.max-players-override", -1) == 0) throw new IllegalArgumentException("queue.max-players-override phải là -1 hoặc số dương");
-        for (String section : List.of("queue", "queue.anti-bot", "permissions", "logging", "priorities", "messages", "messages.admin")) {
+        for (String section : List.of("persistence", "queue", "queue.anti-bot", "permissions", "logging", "priorities", "messages", "messages.admin")) {
             if (file.contains(section) && !file.isConfigurationSection(section)) throw new IllegalArgumentException(section + " phải là section");
         }
         var priorities = file.getConfigurationSection("priorities");

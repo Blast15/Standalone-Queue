@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.0] — ứng viên review/staging
+
+- Hoàn thiện SQ-014 bằng snapshot atomic async, schema/checksum/bounds, ownership lock và waiting-only recovery có kiểm tra quyền/TTL/capacity.
+- Thêm recovery regressions, persistence status và restart-only configuration; giữ snapshot lỗi và fallback memory-only.
+- Bổ sung expiry/permission counters và histogram thời gian chờ đến queued JOIN.
+- Đồng bộ Maven/Gradle/staging probe 2.0.0; cập nhật audit roadmap, backup/migration/rollback và release notes.
+- Chưa nghiệm thu Paper/client/LuckPerms thật, canary và filesystem power-loss; xem `docs/releases/2.0.0.md` và `docs/roadmap-status.md`.
+
+
 ## 1.2.0-SNAPSHOT — phase 3 (unreleased)
 
 - SQ-010: distinct UUID/IP/global/quota/full reasons and counters; IP/UUID rejects do not spend global budget; exact live UUID/IP lease owners use a separately bounded protected budget. Preserve long UUID cooldowns during cleanup; hard 4096 tracking/attempt ceilings and NAT regression.

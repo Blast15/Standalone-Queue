@@ -7,12 +7,16 @@
 Plugin hàng chờ độc lập cho máy chủ Minecraft Paper, **hoàn toàn không cần máy chủ trung gian (Proxy / BungeeCord / Velocity)**.
 
 **Author:** BlastSama  
-**Version:** 1.2.0-SNAPSHOT (ứng viên giai đoạn 3, chưa phát hành)
+**Version:** 2.0.0 (ứng viên tổng hợp giai đoạn 0–4; cần nghiệm thu Paper staging)
 **Supported API:** Paper 1.21+
 
 StandaloneQueue keeps a full Paper server usable without a proxy: players receive a fair, priority-aware queue while administrators get bounded admission controls for join-bot bursts.
 
 ## Documentation
+
+- [2.0.0 migration, recovery và rollback](docs/releases/2.0.0.md)
+- [Đối chiếu toàn bộ lộ trình và gate còn chờ](docs/roadmap-status.md)
+- [2.0.0 verification](docs/testing/2.0.0-verification.md)
 
 - [Installation and first setup](docs/wiki/Installation.md)
 - [Queue and anti-joinbot configuration](docs/wiki/Configuration.md)
@@ -71,6 +75,12 @@ StandaloneQueue keeps a full Paper server usable without a proxy: players receiv
    - ETA lấy từ JOIN thành công của hàng chờ; thiếu dữ liệu hiển thị “Đang cập nhật”.
    - Metrics API không chứa nhãn định danh và không mở HTTP endpoint. G3 chưa nghiệm thu staging.
 
+10. **Phục hồi hàng chờ (tùy chọn)**:
+   - Snapshot file atomic trên worker riêng; giữ thứ tự/heartbeat còn hạn khi restart.
+   - Xác minh lại priority, không phục hồi bypass/in-flight/lease cũ và không lưu IP.
+   - `persistence.enabled: false` mặc định; thay đổi persistence cần restart server.
+   - Storage lỗi giữ file để điều tra, chuyển sang memory-only; xem migration 2.0.0.
+
 ---
 
 ## ⚙️ Cấu Trúc Lệnh & Quyền Hạn
@@ -104,7 +114,7 @@ StandaloneQueue keeps a full Paper server usable without a proxy: players receiv
 ```bash
 mvn -B clean verify
 ```
-File JAR sẽ nằm tại `target/StandaloneQueue-1.2.0-SNAPSHOT.jar`.
+File JAR sẽ nằm tại `target/StandaloneQueue-2.0.0.jar`.
 
 Maven là build nguồn chuẩn và là gate của CI. `build.gradle.kts` được giữ để tham khảo cho IDE; Gradle chưa là đường build được kiểm chứng hoặc hỗ trợ phát hành.
 

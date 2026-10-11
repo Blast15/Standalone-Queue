@@ -37,6 +37,7 @@ public class QueueManager {
     private final AtomicLong timeoutCount = new AtomicLong();
     private final AtomicLong reloadRequest = new AtomicLong();
     private volatile boolean stopped;
+    private volatile boolean recovering;
     private volatile boolean paused;
     private final EnumMap<LoginResultType, java.util.concurrent.atomic.LongAdder> decisions = new EnumMap<>(LoginResultType.class);
     private final java.util.concurrent.atomic.LongAdder preLoginNanos = new java.util.concurrent.atomic.LongAdder();
@@ -45,7 +46,12 @@ public class QueueManager {
     private final AtomicLong failedLogins = new AtomicLong();
     private final AtomicLong cancelledPreLogins = new AtomicLong();
     private final AtomicLong successfulJoins = new AtomicLong();
-    private record AdmissionInfo(String name, int priority) {}
+    private record AdmissionInfo(String name, int priority, long waitingSince) {}
+    private final AtomicLong reservationExpired = new AtomicLong();
+    private final AtomicLong heartbeatExpired = new AtomicLong();
+    private final AtomicLong permissionFailures = new AtomicLong();
+    private final long[] waitBuckets = new long[5]; // cumulative 30s, 60s, 300s, 900s, +Inf
+    private double waitSecondsSum;
     private final Map<UUID, AdmissionInfo> admissionNames = new HashMap<>();
     private final Set<UUID> reservedAdmissions = new HashSet<>();
     private final AdmissionHistory history = new AdmissionHistory();
@@ -150,10 +156,14 @@ public class QueueManager {
     }
 
     private LoginDecision admit(UUID uuid, String name, String ip, long now, int priority, LoginResultType type) {
+        return admit(uuid, name, ip, now, priority, type, now);
+    }
+
+    private LoginDecision admit(UUID uuid, String name, String ip, long now, int priority, LoginResultType type, long waitingSince) {
         long duration = config.getInFlightTimeoutMs();
         UUID token = UUID.randomUUID();
         long deadline = duration > Long.MAX_VALUE - now ? Long.MAX_VALUE : now + duration;
-        admissionNames.put(uuid, new AdmissionInfo(name, Math.max(0, priority)));
+        admissionNames.put(uuid, new AdmissionInfo(name, Math.max(0, priority), waitingSince));
         inFlightLogins.put(uuid, new LoginAttempt(token, uuid, ip, now, deadline,
                 LoginAttempt.Phase.PRELOGIN_ACCEPTED, null, false, config.isEnabled()));
         if (type == LoginResultType.ALLOWED_RESERVED) reservedAdmissions.add(uuid);
@@ -220,8 +230,10 @@ public class QueueManager {
                         .get(Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
             } catch (InterruptedException error) {
                 Thread.currentThread().interrupt();
+                permissionFailures.incrementAndGet();
                 rights = PermissionSnapshot.none(clock.millis());
             } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException | RuntimeException error) {
+                permissionFailures.incrementAndGet();
                 rights = PermissionSnapshot.none(clock.millis());
             }
             synchronized (config) {
@@ -234,7 +246,7 @@ public class QueueManager {
     }
 
     private LoginDecision checkAttempt(UUID uuid, String name, String ipAddress, long now) {
-        if (stopped) return new LoginDecision(LoginResultType.RATE_LIMITED, null);
+        if (stopped || recovering) return new LoginDecision(LoginResultType.RATE_LIMITED, null);
 
         // 1. Kiểm tra Rate Limit chống spam kết nối
         synchronized (rateLimitMap) {
@@ -269,8 +281,8 @@ public class QueueManager {
         lock.writeLock().lock();
         try {
             long now = clock.millis();
-            if (stopped) return new LoginDecision(LoginResultType.RATE_LIMITED, null);
-            if (rights == null || !rights.isFresh(now)) rights = PermissionSnapshot.none(now);
+            if (stopped || recovering) return new LoginDecision(LoginResultType.RATE_LIMITED, null);
+            if (rights == null || !rights.isFresh(now)) { permissionFailures.incrementAndGet(); rights = PermissionSnapshot.none(now); }
             cleanInFlightLogins(now);
             expireQueueEntries(now);
             if (inFlightLogins.containsKey(uuid) || inFlightLogins.size() >= MAX_TRACKED_IDENTITIES) {
@@ -291,6 +303,12 @@ public class QueueManager {
             reconcileReservationsInternal(getSortedQueueInternal(), freeSlots, now);
 
             QueuedPlayer existingPlayer = queueMap.get(uuid);
+            if (existingPlayer != null && existingPlayer.getIpAddress().isEmpty()) {
+                String restoredIp = ipAddress == null || ipAddress.isBlank() ? "unknown" : ipAddress;
+                if (config.isAntiBotEnabled() && countQueuedFromIp(restoredIp) >= config.getAntiBotMaxQueuedPerIp())
+                    return new LoginDecision(LoginResultType.QUEUE_IP_QUOTA, null);
+                existingPlayer.bindRestoredAddress(restoredIp);
+            }
 
             if (config.isAntiBotEnabled() && existingPlayer == null
                     && config.getAntiBotMaxQueuedPerIp() > 0
@@ -303,7 +321,7 @@ public class QueueManager {
                 // Người chơi đang giữ slot hợp lệ và kết nối lại -> Cho phép vào!
                 queueMap.remove(uuid);
                 queueOrderDirty = true;
-                LoginDecision decision = admit(uuid, name, ipAddress, now, rights.priorityWeight(), LoginResultType.ALLOWED_RESERVED);
+                LoginDecision decision = admit(uuid, name, ipAddress, now, rights.priorityWeight(), LoginResultType.ALLOWED_RESERVED, existingPlayer.getFirstJoinedTimestamp());
                 if (config.isDebugLog() && plugin != null) {
                     plugin.getLogger().info("[Queue] Người chơi " + name + " đã kích hoạt slot giữ chỗ thành công và vào game.");
                 }
@@ -354,7 +372,7 @@ public class QueueManager {
             if (queuedPlayer.hasActiveReservation(now) && (maxCap - getActiveOccupiedSlots()) > 0) {
                 queueMap.remove(uuid);
                 queueOrderDirty = true;
-                return admit(uuid, name, ipAddress, now, rights.priorityWeight(), LoginResultType.ALLOWED_RESERVED);
+                return admit(uuid, name, ipAddress, now, rights.priorityWeight(), LoginResultType.ALLOWED_RESERVED, queuedPlayer.getFirstJoinedTimestamp());
             }
 
             // 8. Tính toán vị trí hiện tại trong hàng chờ
@@ -456,8 +474,10 @@ public class QueueManager {
         for (QueuedPlayer player : getSortedQueueInternal()) {
             if (!player.hasActiveReservation(now) && player.isKeepAliveExpired(config.getKeepAliveMs(), now)) {
                 queueMap.remove(player.getUuid());
+                heartbeatExpired.incrementAndGet();
                 queueOrderDirty = true;
             } else if (player.isReservationExpired(now)) {
+                reservationExpired.incrementAndGet();
                 player.requeueAfterExpiredReservation();
                 queueOrderDirty = true;
             }
@@ -582,6 +602,11 @@ public class QueueManager {
             successfulJoins.incrementAndGet();
             if (reservedAdmissions.remove(player.getUniqueId())) {
                 history.record(clock.millis());
+                var identity = admissionNames.get(player.getUniqueId());
+                double waited = elapsed(clock.millis(), identity.waitingSince()) / 1000.0;
+                double[] bounds = {30, 60, 300, 900, Double.POSITIVE_INFINITY};
+                for (int i = 0; i < bounds.length; i++) if (waited <= bounds[i]) waitBuckets[i]++;
+                waitSecondsSum += waited;
             }
             trace(inFlightLogins.get(player.getUniqueId()), "join");
             queueMap.remove(player.getUniqueId());
@@ -713,7 +738,8 @@ public class QueueManager {
     public record Statistics(Map<LoginResultType, Long> decisions, long successfulJoins, long timeouts, long failedLogins, long cancelledPreLogins,
                              int online, int capacity, int queued, int leases, int inFlight, boolean paused,
                              long joins5m, long joins15m, double averagePreLoginMs, double maxPreLoginMs,
-                             int trackedUuids, int trackedIps) {}
+                             int trackedUuids, int trackedIps, long reservationExpired, long heartbeatExpired,
+                             long permissionFailures, List<Long> waitBuckets, double waitSecondsSum) {}
 
     public Statistics getStatistics() {
         synchronized (config) {
@@ -730,7 +756,8 @@ public class QueueManager {
                         getEffectiveMaxPlayers(), queueMap.size(), (int)queueMap.values().stream()
                         .filter(p -> p.hasActiveReservation(clock.millis())).count(), getInFlightCount(), paused,
                         recent.joins5m(), recent.joins15m(), calls == 0 ? 0 : preLoginNanos.sum() / 1e6 / calls,
-                        maxPreLoginNanos.get() / 1e6, uuids, ips);
+                        maxPreLoginNanos.get() / 1e6, uuids, ips, reservationExpired.get(), heartbeatExpired.get(),
+                        permissionFailures.get(), Arrays.stream(waitBuckets).boxed().toList(), waitSecondsSum);
             } finally { lock.writeLock().unlock(); }
         }
     }
@@ -745,6 +772,14 @@ public class QueueManager {
         output.append("standalone_queue_timeouts_total ").append(stats.timeouts()).append('\n');
         output.append("standalone_queue_failed_logins_total ").append(stats.failedLogins()).append('\n');
         output.append("standalone_queue_cancelled_prelogins_total ").append(stats.cancelledPreLogins()).append('\n');
+        output.append("standalone_queue_reservation_expired_total ").append(stats.reservationExpired()).append('\n');
+        output.append("standalone_queue_heartbeat_expired_total ").append(stats.heartbeatExpired()).append('\n');
+        output.append("standalone_queue_permission_failures_total ").append(stats.permissionFailures()).append('\n');
+        String[] bounds = {"30", "60", "300", "900", "+Inf"};
+        for (int i = 0; i < bounds.length; i++) output.append("standalone_queue_wait_seconds_bucket{le=\"")
+                .append(bounds[i]).append("\"} ").append(stats.waitBuckets().get(i)).append('\n');
+        output.append("standalone_queue_wait_seconds_count ").append(stats.waitBuckets().getLast()).append('\n');
+        output.append("standalone_queue_wait_seconds_sum ").append(stats.waitSecondsSum()).append('\n');
         output.append("standalone_queue_online ").append(stats.online()).append('\n');
         output.append("standalone_queue_capacity ").append(stats.capacity()).append('\n');
         output.append("standalone_queue_waiting ").append(stats.queued()).append('\n');
@@ -847,7 +882,7 @@ public class QueueManager {
         synchronized (config) {
             lock.readLock().lock();
             try {
-                if (stopped) return CompletableFuture.failedFuture(new IllegalStateException("Plugin đã dừng"));
+                if (stopped || recovering) return CompletableFuture.failedFuture(new IllegalStateException("Plugin đã dừng hoặc đang phục hồi"));
                 if (request != reloadRequest.get()) return CompletableFuture.failedFuture(new IllegalStateException("Reload đã bị thay thế; hãy thử lại"));
                 previous = config.snapshot();
                 targets = queueMap.values().stream()
@@ -870,6 +905,10 @@ public class QueueManager {
                     long now = clock.millis();
                     if (priorities.values().stream().anyMatch(rights -> !rights.isFresh(now))) {
                         throw new IllegalStateException("Kết quả permission đã cũ; hãy thử lại");
+                    }
+                    if (candidate.persistenceEnabled() != previous.persistenceEnabled()
+                            || candidate.persistenceFlushSeconds() != previous.persistenceFlushSeconds()) {
+                        throw new IllegalArgumentException("Thay đổi persistence yêu cầu restart server");
                     }
                     config.publish(candidate); // All checks finished; no provider calls after publication.
                     targets.forEach(target -> target.identity().setPriority(Math.max(0, priorities.get(target.uuid()).priorityWeight())));
@@ -987,6 +1026,59 @@ public class QueueManager {
             return size;
         } finally {
             lock.writeLock().unlock();
+        }
+    }
+
+    /** Called before listeners register. Recovery gates admission until its async transaction finishes. */
+    public void beginRecovery() { recovering = true; }
+    public void finishRecovery() { recovering = false; }
+
+    public List<com.mineplugin.queue.storage.QueueEntry> persistenceSnapshot() {
+        lock.readLock().lock();
+        try {
+            long now = clock.millis();
+            return queueMap.values().stream().filter(p -> !p.isKeepAliveExpired(Math.min(config.snapshot().keepAliveSeconds(), Long.MAX_VALUE / 1000L) * 1000L, now))
+                    .sorted().map(QueuedPlayer::durableEntry).toList();
+        } finally { lock.readLock().unlock(); }
+    }
+
+    /** Stop new admissions/reloads before capturing the final state; disk work remains outside locks. */
+    public List<com.mineplugin.queue.storage.QueueEntry> stopAndSnapshot() {
+        lock.writeLock().lock();
+        try { stopped = true; reloadRequest.incrementAndGet(); return persistenceSnapshot(); }
+        finally { lock.writeLock().unlock(); }
+    }
+
+    /** Startup-only: resolve current rights outside the state lock, then publish waiting entries together. */
+    public int restoreEntries(List<com.mineplugin.queue.storage.QueueEntry> entries) {
+        QueueSettings settings = config.snapshot();
+        long restoreAt = clock.millis();
+        List<ReloadTarget> targets = entries.stream()
+                .filter(e -> e.firstJoinedAt() <= restoreAt && e.lastPingAt() <= restoreAt
+                        && restoreAt - e.lastPingAt() < Math.min(settings.keepAliveSeconds(), Long.MAX_VALUE / 1000L) * 1000L)
+                .sorted(Comparator.comparingLong(com.mineplugin.queue.storage.QueueEntry::sequence))
+                .limit(settings.maxQueueSize())
+                .map(e -> new ReloadTarget(e.uuid(), e.name(), QueuedPlayer.restore(e, 0, clock))).toList();
+        Map<UUID, PermissionSnapshot> rights = prepareReload(targets, settings);
+        synchronized (config) {
+            lock.writeLock().lock();
+            try {
+                if (stopped || !recovering || !queueMap.isEmpty() || config.snapshot() != settings)
+                    throw new IllegalStateException("Recovery state changed");
+                long now = clock.millis();
+                for (var target : targets) {
+                    var player = target.identity();
+                    var permission = rights.get(target.uuid());
+                    if (!permission.isFresh(now)) throw new IllegalStateException("Recovery permission expired");
+                    player.setPriority(Math.max(0, permission.priorityWeight()));
+                }
+                for (var target : targets) if (!target.identity().isKeepAliveExpired(config.getKeepAliveMs(), now))
+                    queueMap.put(target.uuid(), target.identity());
+                queueOrderDirty = true;
+                // Startup uses the main-thread capacity snapshot; old leases/in-flight are never restored.
+                processReservationsInternal(Math.max(0, getEffectiveMaxPlayers() - getActiveOccupiedSlots()), now);
+                return queueMap.size();
+            } finally { lock.writeLock().unlock(); }
         }
     }
 
