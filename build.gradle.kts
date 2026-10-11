@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "com.mineplugin"
-version = "1.2.0-SNAPSHOT"
+version = "2.0.0"
 
 repositories {
     mavenCentral()
@@ -13,7 +13,7 @@ repositories {
 
 dependencies {
     compileOnly("net.luckperms:api:5.4")
-    compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     compileOnly("org.apache.logging.log4j:log4j-api:2.20.0")
@@ -37,4 +37,7 @@ tasks.withType<JavaCompile> {
 
 tasks.processResources {
     filteringCharset = "UTF-8"
+    filesMatching("plugin.yml") {
+        filter { line -> line.replace("\${project.version}", project.version.toString()) }
+    }
 }

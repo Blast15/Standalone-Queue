@@ -3,15 +3,16 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.mineplugin</groupId>
     <artifactId>StandaloneQueue-StagingProbe</artifactId>
-    <version>1.2.0-SNAPSHOT</version>
+    <version>2.0.0</version>
     <description>Manual Paper staging fixtures and lifecycle trace; never install on production</description>
     <properties><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding></properties>
     <repositories>
         <repository><id>papermc-repo</id><url>https://repo.papermc.io/repository/maven-public/</url></repository>
     </repositories>
     <dependencies>
+        <dependency><groupId>net.luckperms</groupId><artifactId>api</artifactId><version>5.4</version><scope>provided</scope></dependency>
         <dependency><groupId>com.mineplugin</groupId><artifactId>StandaloneQueue</artifactId><version>${project.version}</version><scope>provided</scope></dependency>
-        <dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>1.21.4-R0.1-SNAPSHOT</version><scope>provided</scope></dependency>
+        <dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>1.21.11-R0.1-SNAPSHOT</version><scope>provided</scope></dependency>
     </dependencies>
     <build>
         <plugins>

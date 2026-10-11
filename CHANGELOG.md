@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0] — ứng viên review/staging
+
+- Hoàn thiện SQ-014 bằng snapshot atomic async, schema/checksum/bounds, ownership lock và waiting-only recovery có kiểm tra quyền/TTL/capacity.
+- Thêm recovery regressions, persistence status và restart-only configuration; giữ snapshot lỗi và fallback memory-only.
+- Bổ sung expiry/permission counters và histogram thời gian chờ đến queued JOIN.
+- Đồng bộ Maven/Gradle/staging probe 2.0.0; cập nhật audit roadmap, backup/migration/rollback và release notes.
+- Nâng API tối thiểu lên Paper 1.21.11, sửa version descriptor JAR, giữ bytecode Java 21; kiểm tra runtime Java 21/25.
+- Thêm automated loopback network/recovery matrix, SIGKILL, corrupt snapshot, ban/whitelist và bài tải thực 500 waiting/50 online; CI release chờ matrix hoàn tất.
+- Thêm LuckPerms/H2 thật trên năm runtime, online pipeline mã hóa với session fixture và soak 500/50 trong 300 giây. Đính kèm evidence/checksum/provenance vào release. Còn nghiệm thu Mojang account/canary trên máy chủ đích và filesystem power-loss; xem `docs/releases/2.0.0.md` và `docs/roadmap-status.md`.
+
+
 ## 1.2.0-SNAPSHOT — phase 3 (unreleased)
 
 - SQ-010: distinct UUID/IP/global/quota/full reasons and counters; IP/UUID rejects do not spend global budget; exact live UUID/IP lease owners use a separately bounded protected budget. Preserve long UUID cooldowns during cleanup; hard 4096 tracking/attempt ceilings and NAT regression.

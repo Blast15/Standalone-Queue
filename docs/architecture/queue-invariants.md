@@ -56,3 +56,8 @@ UUID cooldown is checked before IP/global sliding windows. IP rejection never sp
 Pause stops new pre-login/lease allocation but preserves existing lease redemption and in-flight completion. Expiry/capacity reconciliation continue; reload preserves pause. Administrative move cannot cross priority tiers, leases (including unreconciled expired ones), or tracked connections, and preserves heartbeat. Granular permissions are enforced in command dispatch and tab completion; queue.admin stays an umbrella.
 
 Only exact successful queued JOIN transitions feed a fixed 900-second bucket history and inter-arrival EWMA. Quit/pre-login/cancelled/failed/direct/bypass traffic cannot advertise queue throughput. Cached ETA accounts for queue rank plus unfinished redeemed queued admissions, reports a heuristic range and withholds stale/insufficient estimates. See [phase 3 policy](../releases/1.2.0.md) for exact thresholds and caveats.
+
+
+## Durable waiting state (2.0.0)
+
+Persistence runs outside config/state locks on one bounded scheduled worker. Admission is gated while asynchronous startup recovery validates the entire snapshot and resolves current permissions. Only valid WAITING identities with historical FIFO/heartbeat are published; neither lease, IP, priority/bypass nor in-flight tokens cross a restart. Newly allocated leases use current capacity. Invalid/future/expired records do not gain TTL. Stop marks the manager stopped and captures a final immutable snapshot before runtime clear; writes are serialized and the shutdown wait is bounded. Atomic file replacement/checksum/ownership preserve the last completed snapshot or retain corruption evidence. See [exact crash/failure/rollback policy](../releases/2.0.0.md).

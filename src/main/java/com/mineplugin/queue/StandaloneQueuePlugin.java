@@ -29,6 +29,7 @@ public final class StandaloneQueuePlugin extends JavaPlugin {
     private QueueConfig queueConfig;
     private QueueManager queueManager;
     private QueueCleanupTask cleanupTask;
+    private com.mineplugin.queue.storage.QueuePersistence persistence;
     private com.mineplugin.queue.logging.ConsoleFilterManager consoleFilterManager;
 
     @Override
@@ -49,6 +50,10 @@ public final class StandaloneQueuePlugin extends JavaPlugin {
         }
         this.queueManager = new QueueManager(this, queueConfig, permissions, clock);
         this.queueManager.refreshServerCapacity();
+        if (queueConfig.snapshot().persistenceEnabled()) {
+            persistence = new com.mineplugin.queue.storage.QueuePersistence(queueManager,
+                    getDataFolder().toPath(), queueConfig.snapshot().persistenceFlushSeconds(), getLogger());
+        }
         getServer().getScheduler().runTaskTimer(this, () -> {
             refreshOperators.run();
             queueManager.refreshServerCapacity();
@@ -92,6 +97,8 @@ public final class StandaloneQueuePlugin extends JavaPlugin {
             cleanupTask.cancel();
         }
         if (queueManager != null) {
+            var finalSnapshot = queueManager.stopAndSnapshot();
+            if (persistence != null) persistence.close(finalSnapshot);
             queueManager.clearRuntimeState();
         }
         getLogger().info("StandaloneQueue Plugin da duoc tat.");
@@ -103,6 +110,10 @@ public final class StandaloneQueuePlugin extends JavaPlugin {
 
     public QueueConfig getQueueConfig() {
         return queueConfig;
+    }
+
+    public String getPersistenceStatus() {
+        return persistence == null ? "disabled" : persistence.status();
     }
 
     public QueueManager getQueueManager() {

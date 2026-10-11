@@ -19,7 +19,7 @@ public class QueuedPlayer implements Comparable<QueuedPlayer> {
     private boolean reservationExpiredNotice;
     private final UUID uuid;
     private final String username;
-    private final String ipAddress;
+    private volatile String ipAddress;
     private volatile long sequenceNumber;
     private final long firstJoinedTimestamp;
 
@@ -46,6 +46,24 @@ public class QueuedPlayer implements Comparable<QueuedPlayer> {
         this.slotReservedUntilTimestamp = 0L;
     }
 
+    /** Waiting-only restoration; historical lease and IP are deliberately absent. */
+    public static QueuedPlayer restore(com.mineplugin.queue.storage.QueueEntry entry, int priority, Clock clock) {
+        return new QueuedPlayer(entry, priority, clock);
+    }
+
+    private QueuedPlayer(com.mineplugin.queue.storage.QueueEntry entry, int priority, Clock clock) {
+        this.clock = clock;
+        this.uuid = entry.uuid(); this.username = entry.name(); this.ipAddress = "";
+        this.sequenceNumber = entry.sequence(); this.priority = priority;
+        this.firstJoinedTimestamp = entry.firstJoinedAt(); this.lastPingTimestamp = entry.lastPingAt();
+        this.lastAttemptTimestamp = entry.lastPingAt();
+        SEQUENCE_GENERATOR.accumulateAndGet(entry.sequence(), Math::max);
+    }
+
+    public com.mineplugin.queue.storage.QueueEntry durableEntry() {
+        return new com.mineplugin.queue.storage.QueueEntry(uuid, username, sequenceNumber, firstJoinedTimestamp, lastPingTimestamp);
+    }
+
     public UUID getUuid() {
         return uuid;
     }
@@ -56,6 +74,11 @@ public class QueuedPlayer implements Comparable<QueuedPlayer> {
 
     public String getIpAddress() {
         return ipAddress;
+    }
+
+    /** Rebind a restored entry on its first real reconnect, under the manager's state lock. */
+    public void bindRestoredAddress(String ip) {
+        if (ipAddress.isEmpty()) ipAddress = ip == null || ip.isBlank() ? "unknown" : ip;
     }
 
     public long getFirstJoinedTimestamp() {

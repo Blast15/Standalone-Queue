@@ -33,6 +33,25 @@ public final class StagingProbePlugin extends JavaPlugin implements Listener {
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!sender.hasPermission("sqprobe.admin")) return true;
+        if (args.length == 1 && java.util.Set.of("lp-seed", "lp-check", "lp-network-seed", "lp-network-grant", "lp-network-revoke").contains(args[0])
+                && sender instanceof org.bukkit.command.ConsoleCommandSender) {
+            getServer().getScheduler().runTaskAsynchronously(this, () -> RealLuckPermsChecks.run(this, args[0]));
+            return true;
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("snapshot")
+                && args[1].matches("[A-Za-z0-9_-]{1,64}")) {
+            var s = queue.getStatistics();
+            String names = queue.getQueueList().stream().map(p -> p.getUsername())
+                    .collect(java.util.stream.Collectors.joining(","));
+            getLogger().info("SQSNAP " + args[1] + " online=" + s.online() + " capacity=" + s.capacity()
+                    + " queued=" + s.queued() + " leases=" + s.leases() + " inFlight=" + s.inFlight()
+                    + " joins=" + s.successfulJoins() + " failed=" + s.failedLogins()
+                    + " cancelled=" + s.cancelledPreLogins() + " timeouts=" + s.timeouts()
+                    + " paused=" + s.paused() + " timeout="
+                    + ((StandaloneQueuePlugin) getServer().getPluginManager().getPlugin("StandaloneQueue"))
+                        .getQueueConfig().getInFlightTimeoutSeconds() + " names=" + names);
+            return true;
+        }
         if (args.length == 1 && args[0].equalsIgnoreCase("reset")) {
             fixture.set(null); sender.sendMessage("Fixture reset."); return true;
         }

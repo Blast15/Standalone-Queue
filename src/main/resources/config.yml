@@ -148,3 +148,9 @@ messages:
     status-line-in-flight: "<gray>In-flight: <in_flight> | Trễ đang giữ slot: <timed_out> | Tổng timeout: <timeout_count></gray>"
     list-header: "<gradient:#00c6ff:#0072ff><b>=== DANH SÁCH HÀNG CHỜ (<count> người) ===</b></gradient>"
     list-entry: "<gray><pos>. <white><player></white> <dark_gray>| Priority: <yellow><prio></yellow> | Ping cuối: <aqua><last_ping></aqua> trước | Trạng thái: <status></gray>"
+
+# Recovery is opt-in. These settings require a full server restart when changed.
+# Writes are atomic, no IP/permission/lease/in-flight data is persisted.
+persistence:
+  enabled: false
+  flush-interval-seconds: 10

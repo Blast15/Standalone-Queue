@@ -1,0 +1,189 @@
+{
+  "date_utc": "2026-10-11",
+  "scope": "isolated offline-mode Paper network/recovery; no real Mojang auth or LuckPerms backend",
+  "plugin_version": "2.0.0",
+  "plugin_sha256": "4aa57d6abadb1f56ae825e9798e678faf30748f01a02f251172c59b05bc22203",
+  "minimum_api": "1.21.11-R0.1-SNAPSHOT",
+  "bytecode_major": 65,
+  "automated_tests": {
+    "java21": {
+      "unit": 144,
+      "api_integration": 14,
+      "failed": 0
+    },
+    "java25": {
+      "unit": 144,
+      "api_integration": 14,
+      "failed": 0
+    }
+  },
+  "matrix": [
+    {
+      "minecraft": "1.21.11",
+      "paper_build": 132,
+      "paper_channel": "STABLE",
+      "paper_sha256": "5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba",
+      "source_url": "https://fill-data.papermc.io/v1/objects/5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba/paper-1.21.11-132.jar",
+      "java": "Temurin 21.0.12.1+1",
+      "result": {
+        "version": "1.21.11",
+        "scope": "offline-network",
+        "checks": [
+          "Paper boots and loads plugin/probe 2.0.0",
+          "Full server queues FIFO and enforces shared-IP quota",
+          "Exclusive lease, reconnect handoff, JOIN/QUIT cleanup",
+          "Late deny-pre releases admission",
+          "Late deny-login releases admission",
+          "Native ban and whitelist rejection survives queue admission",
+          "Pause/resume rejects new admission while paused",
+          "Slow handshake keeps capacity until terminal rejection then hands off",
+          "Invalid reload preserves generation; valid reload changes capacity",
+          "Graceful restart restores queue and grants fresh lease",
+          "SIGKILL restores latest completed snapshot without old admission/lease",
+          "Corrupt snapshot falls back to memory-only and preserves evidence"
+        ],
+        "result": "PASS"
+      }
+    },
+    {
+      "minecraft": "26.1.1",
+      "paper_build": 29,
+      "paper_channel": "ALPHA",
+      "paper_sha256": "43d08ed52c7af4e9f72769122501a5c15f99c7ace0c428a3eef040fd3f6fdbc5",
+      "source_url": "https://fill-data.papermc.io/v1/objects/43d08ed52c7af4e9f72769122501a5c15f99c7ace0c428a3eef040fd3f6fdbc5/paper-26.1.1-29.jar",
+      "java": "Corretto 25.0.4.1+10",
+      "result": {
+        "version": "26.1.1",
+        "scope": "offline-network",
+        "checks": [
+          "Paper boots and loads plugin/probe 2.0.0",
+          "Full server queues FIFO and enforces shared-IP quota",
+          "Exclusive lease, reconnect handoff, JOIN/QUIT cleanup",
+          "Late deny-pre releases admission",
+          "Late deny-login releases admission",
+          "Native ban and whitelist rejection survives queue admission",
+          "Pause/resume rejects new admission while paused",
+          "Slow handshake keeps capacity until terminal rejection then hands off",
+          "Invalid reload preserves generation; valid reload changes capacity",
+          "Graceful restart restores queue and grants fresh lease",
+          "SIGKILL restores latest completed snapshot without old admission/lease",
+          "Corrupt snapshot falls back to memory-only and preserves evidence"
+        ],
+        "result": "PASS"
+      }
+    },
+    {
+      "minecraft": "26.1.2",
+      "paper_build": 74,
+      "paper_channel": "STABLE",
+      "paper_sha256": "1d70b1dab9cf4a6de615209a536f3a45a2186240253c428213ce2188ab95e5f7",
+      "source_url": "https://fill-data.papermc.io/v1/objects/1d70b1dab9cf4a6de615209a536f3a45a2186240253c428213ce2188ab95e5f7/paper-26.1.2-74.jar",
+      "java": "Corretto 25.0.4.1+10",
+      "result": {
+        "version": "26.1.2",
+        "scope": "offline-network",
+        "checks": [
+          "Paper boots and loads plugin/probe 2.0.0",
+          "Full server queues FIFO and enforces shared-IP quota",
+          "Exclusive lease, reconnect handoff, JOIN/QUIT cleanup",
+          "Late deny-pre releases admission",
+          "Late deny-login releases admission",
+          "Native ban and whitelist rejection survives queue admission",
+          "Pause/resume rejects new admission while paused",
+          "Slow handshake keeps capacity until terminal rejection then hands off",
+          "Invalid reload preserves generation; valid reload changes capacity",
+          "Graceful restart restores queue and grants fresh lease",
+          "SIGKILL restores latest completed snapshot without old admission/lease",
+          "Corrupt snapshot falls back to memory-only and preserves evidence"
+        ],
+        "result": "PASS"
+      }
+    },
+    {
+      "minecraft": "26.2",
+      "paper_build": 133,
+      "paper_channel": "STABLE",
+      "paper_sha256": "bf1dcf627364f8a631ab15250d240eb5a8e89faaac523b391e1c61367fce9ff1",
+      "source_url": "https://fill-data.papermc.io/v1/objects/bf1dcf627364f8a631ab15250d240eb5a8e89faaac523b391e1c61367fce9ff1/paper-26.2-133.jar",
+      "java": "Corretto 25.0.4.1+10",
+      "result": {
+        "version": "26.2",
+        "scope": "offline-network",
+        "checks": [
+          "Paper boots and loads plugin/probe 2.0.0",
+          "Full server queues FIFO and enforces shared-IP quota",
+          "Exclusive lease, reconnect handoff, JOIN/QUIT cleanup",
+          "Late deny-pre releases admission",
+          "Late deny-login releases admission",
+          "Native ban and whitelist rejection survives queue admission",
+          "Pause/resume rejects new admission while paused",
+          "Slow handshake keeps capacity until terminal rejection then hands off",
+          "Invalid reload preserves generation; valid reload changes capacity",
+          "Graceful restart restores queue and grants fresh lease",
+          "SIGKILL restores latest completed snapshot without old admission/lease",
+          "Corrupt snapshot falls back to memory-only and preserves evidence"
+        ],
+        "result": "PASS"
+      },
+      "raw_protocol": {
+        "number": 776,
+        "patched_server_sha256": "88ca7159213ae5ee7211d19d532deb48bc481c166713e4bd9aca00b0d4f16f96",
+        "teleport_includes_position": false
+      }
+    },
+    {
+      "minecraft": "26.3",
+      "paper_build": 170,
+      "paper_channel": "BETA",
+      "paper_sha256": "178a7bd115d8ab069af267bca2cba567d3d23036392762189846f35e97e35a17",
+      "source_url": "https://fill-data.papermc.io/v1/objects/178a7bd115d8ab069af267bca2cba567d3d23036392762189846f35e97e35a17/paper-26.3-170.jar",
+      "java": "Corretto 25.0.4.1+10",
+      "result": {
+        "version": "26.3",
+        "scope": "offline-network",
+        "checks": [
+          "Paper boots and loads plugin/probe 2.0.0",
+          "Full server queues FIFO and enforces shared-IP quota",
+          "Exclusive lease, reconnect handoff, JOIN/QUIT cleanup",
+          "Late deny-pre releases admission",
+          "Late deny-login releases admission",
+          "Native ban and whitelist rejection survives queue admission",
+          "Pause/resume rejects new admission while paused",
+          "Slow handshake keeps capacity until terminal rejection then hands off",
+          "Invalid reload preserves generation; valid reload changes capacity",
+          "Graceful restart restores queue and grants fresh lease",
+          "SIGKILL restores latest completed snapshot without old admission/lease",
+          "Corrupt snapshot falls back to memory-only and preserves evidence"
+        ],
+        "result": "PASS"
+      },
+      "raw_protocol": {
+        "number": 777,
+        "patched_server_sha256": "1517c68ab177ce191d9dc63b2b8382430f4d09021c3b409d0406a63a5be1cc48",
+        "teleport_includes_position": true
+      }
+    }
+  ],
+  "load": {
+    "version": "26.2",
+    "scope": "load-500-50",
+    "checks": [
+      "50 real loopback clients reach Paper JOIN",
+      "500 waiting entries / 50 online: bounded queue rejects overflow",
+      "Lease handoff remains exclusive under 500/50 load"
+    ],
+    "result": "PASS",
+    "elapsed_seconds": 35.28,
+    "online": 50,
+    "waiting": 500,
+    "persistence": false,
+    "heap_max_mib": 1024
+  },
+  "remaining_gates": [
+    "Real Mojang online authentication",
+    "Real LuckPerms storage/context/revoke",
+    "Crash during filesystem syscall/power-loss",
+    "Target-host soak/canary/rollback, heap/GC, latency and NAT false-positive",
+    "Paper 26.3 STABLE qualification"
+  ]
+}

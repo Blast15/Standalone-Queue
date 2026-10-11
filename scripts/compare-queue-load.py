@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--baseline-classes', type=Path, required=True)
+parser.add_argument('--candidate-label', default='candidate')
 parser.add_argument('--forks', type=int, default=3)
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
@@ -30,7 +31,7 @@ with tempfile.TemporaryDirectory(prefix='queue-load-') as work:
     for antibot in ('false', 'true'):
         for fork in range(args.forks):
             # Alternate order between forks to reduce a systematic warm-host/order bias.
-            variants = [('baseline', str(baseline)), ('phase3', str(root / 'target/classes'))]
+            variants = [('baseline', str(baseline)), (args.candidate_label, str(root / 'target/classes'))]
             if fork % 2:
                 variants.reverse()
             for label, classes in variants:

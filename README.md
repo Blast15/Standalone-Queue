@@ -1,18 +1,25 @@
 # StandaloneQueue
 
-[![Paper](https://img.shields.io/badge/Paper-1.21%2B-00a86b)](https://papermc.io/)
-[![Java](https://img.shields.io/badge/Java-21-orange)](https://adoptium.net/)
+[![Paper](https://img.shields.io/badge/Paper-1.21.11–26.3-00a86b)](https://papermc.io/)
+[![Java](https://img.shields.io/badge/Java-21%20%2F%2025-orange)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Plugin hàng chờ độc lập cho máy chủ Minecraft Paper, **hoàn toàn không cần máy chủ trung gian (Proxy / BungeeCord / Velocity)**.
 
 **Author:** BlastSama  
-**Version:** 1.2.0-SNAPSHOT (ứng viên giai đoạn 3, chưa phát hành)
-**Supported API:** Paper 1.21+
+**Version:** 2.0.0
+**Phạm vi mục tiêu:** Paper 1.21.11–26.3; Java 21 cho 1.21.11, Java 25 cho 26.x. 26.1.1 ALPHA và 26.3 BETA được hỗ trợ thử nghiệm. Xem [ma trận kiểm thử thực tế](docs/testing/real-paper.md).
+
+Tải [bản 2.0.0 và bằng chứng kiểm thử](https://github.com/Blast15/Standalone-Queue/releases/tag/v2.0.0). CI chạy 158 test trên Java 21/25, năm runtime Paper thật, LuckPerms/H2 thật và soak 500 WAITING/50 online trong 5 phút. Online-mode có test mã hóa dùng session fixture; đăng nhập Mojang thật và canary tại máy chủ đích là bước nghiệm thu triển khai.
 
 StandaloneQueue keeps a full Paper server usable without a proxy: players receive a fair, priority-aware queue while administrators get bounded admission controls for join-bot bursts.
 
 ## Documentation
+
+- [2.0.0 migration, recovery và rollback](docs/releases/2.0.0.md)
+- [Đối chiếu toàn bộ lộ trình và gate còn chờ](docs/roadmap-status.md)
+- [2.0.0 verification](docs/testing/2.0.0-verification.md)
+- [Paper 1.21.11–26.3: network/recovery/load matrix](docs/testing/real-paper.md)
 
 - [Installation and first setup](docs/wiki/Installation.md)
 - [Queue and anti-joinbot configuration](docs/wiki/Configuration.md)
@@ -69,7 +76,13 @@ StandaloneQueue keeps a full Paper server usable without a proxy: players receiv
    - `/queue stats` phân loại reject và báo JOIN/timeout/latency; quyền riêng cho stats, inspect và quản lý.
    - `/queue pause|resume|move` giữ an toàn cho lease/in-flight và ghi audit log.
    - ETA lấy từ JOIN thành công của hàng chờ; thiếu dữ liệu hiển thị “Đang cập nhật”.
-   - Metrics API không chứa nhãn định danh và không mở HTTP endpoint. G3 chưa nghiệm thu staging.
+   - Metrics API không chứa nhãn định danh và không mở HTTP endpoint. Ngưỡng/SLO cần đo tại máy chủ đích.
+
+10. **Phục hồi hàng chờ (tùy chọn)**:
+   - Snapshot file atomic trên worker riêng; giữ thứ tự/heartbeat còn hạn khi restart.
+   - Xác minh lại priority, không phục hồi bypass/in-flight/lease cũ và không lưu IP.
+   - `persistence.enabled: false` mặc định; thay đổi persistence cần restart server.
+   - Storage lỗi giữ file để điều tra, chuyển sang memory-only; xem migration 2.0.0.
 
 ---
 
@@ -104,7 +117,7 @@ StandaloneQueue keeps a full Paper server usable without a proxy: players receiv
 ```bash
 mvn -B clean verify
 ```
-File JAR sẽ nằm tại `target/StandaloneQueue-1.2.0-SNAPSHOT.jar`.
+File JAR sẽ nằm tại `target/StandaloneQueue-2.0.0.jar`.
 
 Maven là build nguồn chuẩn và là gate của CI. `build.gradle.kts` được giữ để tham khảo cho IDE; Gradle chưa là đường build được kiểm chứng hoặc hỗ trợ phát hành.
 

@@ -48,3 +48,8 @@ replay_pid*
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# Real Paper staging runtime and test-only protocol dependencies
+.staging-work/
+node_modules/
+__pycache__/

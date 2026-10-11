@@ -27,3 +27,8 @@ Console suppression is a separate opt-in setting, `logging.suppress-queue-noise:
 Phase 3 grants separate `queue.stats`, `queue.inspect`, `queue.manage` nodes while retaining `queue.admin` as an umbrella. Status/stats show reason counters, success/failure/cancellation/timeouts, queue/capacity/lease/in-flight/pause and pre-login average/max latency. Inspect hides IP. Use deltas and labeled legitimate clients to distinguish false positives from bots; counters alone cannot label traffic.
 
 Pause rejects new queue admissions/entries and new lease allocation, while pre-issued leases can redeem and in-flight can finish. Expiry/reconciliation continue; resume allocates immediately. Move is one-based and cannot cross tier/lease boundaries. Changes are audited independently of debug logging. The Java metrics/text API has fixed reason labels, no identities and no HTTP endpoint. Follow [G3 staging acceptance](../testing/phase-3-staging.md) before release.
+
+
+## Recovery 2.0.0
+
+Kiểm tra `Persistence` trong `/queue status|stats`. Nếu `failed`, lưu log và dừng server trước khi sao lưu/đổi tên snapshot hỏng; phiên hiện tại tiếp tục memory-only. Không dùng Bukkit `/reload` để nâng cấp. [Runbook recovery và rollback](../releases/2.0.0.md), [các gate còn chờ](../roadmap-status.md).

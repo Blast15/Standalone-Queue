@@ -55,3 +55,8 @@ Suppression is independent of `debug-log` and defaults off. When on, only known 
 A live lease matching original UUID/IP gets protected global headroom, still constrained by UUID/IP limits. This does not authenticate offline users. Defaults IP 20/quota 5 can reject legitimate shared-NAT traffic; measure labeled-client false positives and tune, rather than treating these defaults as universal. See the [NAT scenario and migration](../releases/1.2.0.md).
 
 `messages.kick-paused` is optional with a Vietnamese fallback. `<eta>` now uses successful queued JOIN observations, reports an approximate range, and shows `Đang cập nhật` with insufficient/stale traffic. No fixed per-position time remains. Pause is runtime-only, survives reload and resets on restart.
+
+
+## Persistence (2.0.0)
+
+`persistence.enabled` mặc định `false`; `persistence.flush-interval-seconds` mặc định `10`, giới hạn 1–300. Cả hai cần restart server khi đổi; reload từ chối thay đổi và giữ settings cũ. Khi bật, max queue hỗ trợ tối đa 100.000 lượt. File cố định `queue-state.bin`, không lưu IP/quyền/token. [Recovery, backup, xử lý file hỏng và rollback](../releases/2.0.0.md).
